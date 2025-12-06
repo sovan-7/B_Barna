@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:html_editor_enhanced/html_editor.dart';
 import 'package:bbarna/resources/app_colors.dart';
 
-
 class QuestionHtmlEditor extends StatelessWidget {
   HtmlEditorController controller;
   String heading = "";
@@ -64,7 +63,9 @@ class QuestionHtmlEditor extends StatelessWidget {
                     dropdownMenuDirection: DropdownMenuDirection.down,
                     dropdownItemHeight: 60,
                     toolbarType: ToolbarType.nativeScrollable,
-                    
+                    textStyle: TextStyle(
+                        color: Colors.black,
+                        backgroundColor: Colors.transparent),
                     defaultToolbarButtons: [
                       StyleButtons(),
                       FontSettingButtons(),
@@ -82,9 +83,18 @@ class QuestionHtmlEditor extends StatelessWidget {
                     spellCheck: true,
                     adjustHeightForKeyboard: false,
                     androidUseHybridComposition: false,
-                    
+                    initialText: '''
+                                <style>
+                                  body, p, div {
+                                   font-size: 16px !important;
+                                    }
+                            * {
+                              background-color: transparent !important; 
+                              color: black !important;
+                            }
+                          </style>
+                        ''',
                   ),
-                 
                   otherOptions: const OtherOptions(
                       height: 200, decoration: BoxDecoration()),
                 ),
@@ -123,6 +133,4 @@ class QuestionHtmlEditor extends StatelessWidget {
       ),
     );
   }
-
-  
 }

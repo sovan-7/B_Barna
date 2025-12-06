@@ -37,12 +37,11 @@ class _AddQuestionState extends State<AddQuestion> {
     return Scaffold(
         key: key,
         body: PopScope(
-         onPopInvokedWithResult: (didPop, result) {
-    if (!didPop) {
-      Navigator.of(context).pop();
-    }
-  },
-
+          onPopInvokedWithResult: (didPop, result) {
+            if (!didPop) {
+              Navigator.of(context).pop();
+            }
+          },
           canPop: true,
           child: Column(children: [
             AppHeader(
@@ -77,8 +76,8 @@ class _AddQuestionState extends State<AddQuestion> {
                                 border: Border.all(
                                     width: 1,
                                     color: AppColorsInApp.colorGreyWhite),
-                                color:
-                                    AppColorsInApp.colorBlue.withValues(alpha: .1)),
+                                color: AppColorsInApp.colorBlue
+                                    .withValues(alpha: .1)),
                             child: Padding(
                                 padding:
                                     const EdgeInsets.only(left: 10, top: 10),
@@ -420,9 +419,7 @@ class _AddQuestionState extends State<AddQuestion> {
     hintController.clear();
     solutionController.clear();
     selectedIndex = -1;
-    setState(() {
-      
-    });
+    setState(() {});
   }
 
   Future<String> getAnswer() async {
