@@ -83,17 +83,7 @@ class QuestionHtmlEditor extends StatelessWidget {
                     spellCheck: true,
                     adjustHeightForKeyboard: false,
                     androidUseHybridComposition: false,
-                    initialText: '''
-                                <style>
-                                  body, p, div {
-                                   font-size: 16px !important;
-                                    }
-                            * {
-                              background-color: transparent !important; 
-                              color: black !important;
-                            }
-                          </style>
-                        ''',
+                    initialText: "",
                   ),
                   otherOptions: const OtherOptions(
                       height: 200, decoration: BoxDecoration()),
