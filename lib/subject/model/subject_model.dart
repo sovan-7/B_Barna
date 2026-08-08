@@ -12,29 +12,34 @@ class SubjectModel {
   String name = stringDefault;
   String image = stringDefault;
   double price = doubleDefault;
-   double sellingPrice = doubleDefault;
+  double sellingPrice = doubleDefault;
   int displayPriority = intDefault;
   bool willDisplay = boolDefault;
   bool isLocked = boolDefault;
   bool isSelected = boolDefault;
   bool isPopular = boolDefault;
+  String couponCode = stringDefault;
+  double couponDiscount = doubleDefault;
+  int couponValidTill = intDefault;
 
   SubjectModel(
-    this.courseCode,
-    this.courseType,
-    this.courseName,
-    this.price,
-    this. sellingPrice,
-    this.code,
-    this.description,
-    this.name,
-    this.image,
-    this.displayPriority,
-    this.timeStamp,
-    this.willDisplay,
-    this.isLocked,
-    this.isPopular
-  );
+      this.courseCode,
+      this.courseType,
+      this.courseName,
+      this.price,
+      this.sellingPrice,
+      this.code,
+      this.description,
+      this.name,
+      this.image,
+      this.displayPriority,
+      this.timeStamp,
+      this.willDisplay,
+      this.isLocked,
+      this.isPopular,
+      this.couponCode,
+      this.couponDiscount,
+      this.couponValidTill);
 
   Map<String, dynamic> toMap() {
     return {
@@ -48,10 +53,13 @@ class SubjectModel {
       "subject_image": image,
       "display_priority": displayPriority,
       "subject_price": price,
-      "selling_price":sellingPrice,
+      "selling_price": sellingPrice,
       "willDisplay": willDisplay,
       "isLocked": isLocked,
-      "isPopular":isPopular
+      "isPopular": isPopular,
+      "couponCode": couponCode,
+      "couponDiscount": couponDiscount,
+      "couponValidTill": couponValidTill
     };
   }
 
@@ -65,11 +73,14 @@ class SubjectModel {
         name = doc.data()!["subject_name"] ?? stringDefault,
         image = doc.data()!["subject_image"] ?? stringDefault,
         price = doc.data()!["subject_price"] ?? doubleDefault,
-        sellingPrice=doc.data()!["selling_price"] ?? doubleDefault,
+        sellingPrice = doc.data()!["selling_price"] ?? doubleDefault,
         displayPriority = doc.data()!["display_priority"] ?? intDefault,
         willDisplay = doc.data()!["willDisplay"] ?? boolDefault,
         isLocked = doc.data()!["isLocked"] ?? boolDefault,
         timeStamp = doc.data()!["created_at"] ?? intDefault,
-        isPopular=doc.data()!["isPopular"] ?? boolDefault,
-        isSelected = false;
+        isPopular = doc.data()!["isPopular"] ?? boolDefault,
+        isSelected = false,
+        couponCode = doc.data()!["couponCode"] ?? stringDefault,
+        couponDiscount = doc.data()!["couponDiscount"] ?? doubleDefault,
+        couponValidTill = doc.data()!["couponValidTill"] ?? intDefault;
 }

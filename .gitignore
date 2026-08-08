@@ -33,6 +33,9 @@ migrate_working_dir/
 .pub/
 /build/
 
+# CodeGraph index (local, machine-generated)
+.codegraph/
+
 # Symbolication related
 app.*.symbols
 

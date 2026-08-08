@@ -9,6 +9,7 @@ import 'package:bbarna/resources/constant.dart';
 import 'package:bbarna/subject/model/subject_model.dart';
 import 'package:bbarna/subject/viewModel/subject_view_model.dart';
 import 'package:bbarna/utils/helper.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:bbarna/core/widgets/app_header.dart';
@@ -39,6 +40,11 @@ class _EditSubjectState extends State<EditSubject> {
   TextEditingController priceController = TextEditingController();
   TextEditingController sellingPriceController = TextEditingController();
 
+  // Coupon controllers
+  TextEditingController couponCodeController = TextEditingController();
+  TextEditingController couponDiscountPriceController = TextEditingController();
+  DateTime? couponValidTill;
+
   String? _selectedCourseValue;
   String? _selectedCourseType;
 
@@ -60,14 +66,238 @@ class _EditSubjectState extends State<EditSubject> {
     imageName = "img_${widget.subjectData.code}";
     _selectedCourseValue = widget.subjectData.courseName;
     priceController.text = widget.subjectData.price.toString();
-    sellingPriceController.text = widget.subjectData.sellingPrice == doubleDefault
-        ? widget.subjectData.price.toString()
-        : widget.subjectData.sellingPrice.toString();
+    sellingPriceController.text =
+        widget.subjectData.sellingPrice == doubleDefault
+            ? widget.subjectData.price.toString()
+            : widget.subjectData.sellingPrice.toString();
     _selectedCourseType = widget.subjectData.courseType.toString();
     willShow = widget.subjectData.willDisplay;
     isLocked = widget.subjectData.isLocked;
     isPopular = widget.subjectData.isPopular;
+
+    // Coupon init
+    couponCodeController.text = widget.subjectData.couponCode ?? '';
+    couponDiscountPriceController.text =
+        (widget.subjectData.couponDiscount == 0)
+            ? ''
+            : widget.subjectData.couponDiscount.toString();
+    couponValidTill = (widget.subjectData.couponValidTill != -1) &&
+            couponCodeController.text.isNotEmpty &&
+            couponCodeController.text != stringDefault
+        ? DateTime.fromMillisecondsSinceEpoch(
+            widget.subjectData.couponValidTill)
+        : null;
+
     super.initState();
+  }
+
+  Future<void> _pickCouponValidTill() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate:
+          couponValidTill ?? DateTime.now().add(const Duration(days: 30)),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: AppColorsInApp.colorSecondary ?? Colors.blue,
+              onPrimary: Colors.white,
+              onSurface: AppColorsInApp.colorBlack1,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() {
+        couponValidTill = picked;
+      });
+    }
+  }
+
+  Widget _buildCouponFieldsNarrow() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 20.0),
+          child: CustomTextField(
+            title: "Coupon Code",
+            labelText: "Coupon Code",
+            textEditingController: couponCodeController,
+            textInputType: TextInputType.text,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 20.0),
+          child: CustomTextField(
+            title: "Coupon Discount Price",
+            labelText: "Coupon Discount Price",
+            textEditingController: couponDiscountPriceController,
+            textInputType: TextInputType.number,
+          ),
+        ),
+        _buildValidTillField(topPadding: 20.0),
+      ],
+    );
+  }
+
+  Widget _buildCouponFieldsWide() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 25.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Coupon Details",
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: AppColorsInApp.colorGrey,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Coupon Code",
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: AppColorsInApp.colorGrey,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    width: 350,
+                    height: 50,
+                    padding: const EdgeInsets.symmetric(horizontal: 15),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      color: AppColorsInApp.colorWhite,
+                    ),
+                    child: TextField(
+                      controller: couponCodeController,
+                      keyboardType: TextInputType.text,
+                      decoration: const InputDecoration(
+                        hintText: "Coupon Code",
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 50),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Coupon Discount Price",
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: AppColorsInApp.colorGrey,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    width: 350,
+                    height: 50,
+                    padding: const EdgeInsets.symmetric(horizontal: 15),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      color: AppColorsInApp.colorWhite,
+                    ),
+                    child: TextField(
+                      controller: couponDiscountPriceController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        hintText: "Coupon Discount Price",
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          _buildValidTillField(topPadding: 20.0),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildValidTillField({double topPadding = 0}) {
+    return Padding(
+      padding: EdgeInsets.only(top: topPadding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Coupon Valid Till",
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: AppColorsInApp.colorGrey,
+            ),
+          ),
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: _pickCouponValidTill,
+            child: Container(
+              width: 350,
+              height: 50,
+              padding: const EdgeInsets.symmetric(horizontal: 15),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                color: AppColorsInApp.colorWhite,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    couponValidTill != null
+                        ? "${couponValidTill!.day.toString().padLeft(2, '0')}/"
+                            "${couponValidTill!.month.toString().padLeft(2, '0')}/"
+                            "${couponValidTill!.year}"
+                        : "Select Valid Till Date",
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: couponValidTill != null
+                          ? AppColorsInApp.colorBlack1
+                          : AppColorsInApp.colorGrey,
+                    ),
+                  ),
+                  const Icon(
+                    Icons.calendar_today,
+                    size: 18,
+                    color: AppColorsInApp.colorGrey,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  double parseCouponDiscount(String text) {
+    final parsed = double.tryParse(text.trim());
+    return parsed ?? 0;
+  }
+
+  int toTimestamp() {
+    return couponValidTill != null
+        ? Timestamp.fromDate(couponValidTill!).millisecondsSinceEpoch
+        : -1;
   }
 
   @override
@@ -96,10 +326,7 @@ class _EditSubjectState extends State<EditSubject> {
                     Expanded(
                       flex: 5,
                       child: Container(
-                        padding: const EdgeInsets.only(
-                          left: 20,
-                          right: 20,
-                        ),
+                        padding: const EdgeInsets.only(left: 20, right: 20),
                         color: AppColorsInApp.colorGrey.withOpacity(0.1),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.start,
@@ -112,9 +339,8 @@ class _EditSubjectState extends State<EditSubject> {
                                   child: Column(
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceEvenly,
-                                    crossAxisAlignment: width < 900
-                                        ? CrossAxisAlignment.center
-                                        : CrossAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
                                     children: [
                                       Row(
                                         mainAxisAlignment:
@@ -148,9 +374,8 @@ class _EditSubjectState extends State<EditSubject> {
                                                     width: 350,
                                                     margin:
                                                         const EdgeInsets.only(
-                                                      top: 10,
-                                                      bottom: 20,
-                                                    ),
+                                                            top: 10,
+                                                            bottom: 20),
                                                     padding:
                                                         const EdgeInsets.only(
                                                             left: 15,
@@ -207,8 +432,7 @@ class _EditSubjectState extends State<EditSubject> {
                                               ),
                                               Padding(
                                                 padding: const EdgeInsets.only(
-                                                  top: 20.0,
-                                                ),
+                                                    top: 20.0),
                                                 child: CustomTextField(
                                                   title: "Subject Name",
                                                   labelText: "Subject Name",
@@ -220,138 +444,124 @@ class _EditSubjectState extends State<EditSubject> {
                                                 padding: const EdgeInsets.only(
                                                     top: 20),
                                                 child: Column(
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .spaceBetween,
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      const Text(
-                                                        "Course Type",
-                                                        style: TextStyle(
-                                                            fontSize: 15,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                            color:
-                                                                AppColorsInApp
-                                                                    .colorGrey),
-                                                      ),
-                                                      Container(
-                                                        width: 350,
-                                                        margin: const EdgeInsets
-                                                            .only(
-                                                          top: 10,
-                                                          //bottom: 20,
-                                                        ),
-                                                        padding:
-                                                            const EdgeInsets
-                                                                .only(
-                                                                left: 15,
-                                                                right: 15),
-                                                        decoration:
-                                                            BoxDecoration(
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(10),
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment
+                                                          .spaceBetween,
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    const Text(
+                                                      "Course Type",
+                                                      style: TextStyle(
+                                                          fontSize: 15,
+                                                          fontWeight:
+                                                              FontWeight.bold,
                                                           color: AppColorsInApp
-                                                              .colorWhite,
-                                                        ),
-                                                        child: DropdownButton<
-                                                            String>(
-                                                          value:
-                                                              _selectedCourseType,
-                                                          elevation: 16,
-                                                          hint: const Text(
-                                                              "Select Course Type"),
-                                                          isExpanded: true,
-                                                          style: const TextStyle(
-                                                              color: AppColorsInApp
-                                                                  .colorBlack1),
-                                                          underline:
-                                                              Container(),
-                                                          onChanged: (String?
-                                                              newValue) {
-                                                            setState(() {
-                                                              _selectedCourseType =
-                                                                  newValue!;
-                                                            });
-                                                          },
-                                                          items: courseTypeList
-                                                              .map((String
-                                                                  value) {
-                                                            return DropdownMenuItem<
-                                                                String>(
-                                                              value: value,
-                                                              child:
-                                                                  Text(value),
-                                                            );
-                                                          }).toList(),
-                                                        ),
+                                                              .colorGrey),
+                                                    ),
+                                                    Container(
+                                                      width: 350,
+                                                      margin:
+                                                          const EdgeInsets.only(
+                                                              top: 10),
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                              left: 15,
+                                                              right: 15),
+                                                      decoration: BoxDecoration(
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(10),
+                                                        color: AppColorsInApp
+                                                            .colorWhite,
                                                       ),
-                                                    ]),
-                                              ),
-                                              Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                          top: 25.0),
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      const Text(
-                                                        "is Popular:  ",
-                                                        style: TextStyle(
-                                                            fontSize: 15,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                            color:
-                                                                AppColorsInApp
-                                                                    .colorGrey),
-                                                      ),
-                                                      const SizedBox(
-                                                        height: 10,
-                                                      ),
-                                                      ToggleSwitch(
-                                                        minWidth: 90.0,
-                                                        cornerRadius: 20.0,
-                                                        activeBgColors: [
-                                                          const [
-                                                            AppColorsInApp
-                                                                .colorLightRed
-                                                          ],
-                                                          [
-                                                            AppColorsInApp
-                                                                .colorSecondary!
-                                                          ],
-                                                        ],
-                                                        activeFgColor:
-                                                            Colors.white,
-                                                        inactiveBgColor:
-                                                            Colors.grey,
-                                                        inactiveFgColor:
-                                                            Colors.white,
-                                                        initialLabelIndex:
-                                                            isPopular ? 1 : 0,
-                                                        totalSwitches: 2,
-                                                        labels: const [
-                                                          'NO',
-                                                          'YES'
-                                                        ],
-                                                        radiusStyle: true,
-                                                        onToggle: (index) {
+                                                      child: DropdownButton<
+                                                          String>(
+                                                        value:
+                                                            _selectedCourseType,
+                                                        elevation: 16,
+                                                        hint: const Text(
+                                                            "Select Course Type"),
+                                                        isExpanded: true,
+                                                        style: const TextStyle(
+                                                            color: AppColorsInApp
+                                                                .colorBlack1),
+                                                        underline: Container(),
+                                                        onChanged:
+                                                            (String? newValue) {
                                                           setState(() {
-                                                            if (index == 0) {
-                                                              isPopular = false;
-                                                            } else {
-                                                              isPopular = true;
-                                                            }
+                                                            _selectedCourseType =
+                                                                newValue!;
                                                           });
                                                         },
+                                                        items: courseTypeList
+                                                            .map(
+                                                                (String value) {
+                                                          return DropdownMenuItem<
+                                                              String>(
+                                                            value: value,
+                                                            child: Text(value),
+                                                          );
+                                                        }).toList(),
                                                       ),
-                                                    ],
-                                                  )),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                    top: 25.0),
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    const Text(
+                                                      "is Popular:  ",
+                                                      style: TextStyle(
+                                                          fontSize: 15,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color: AppColorsInApp
+                                                              .colorGrey),
+                                                    ),
+                                                    const SizedBox(height: 10),
+                                                    ToggleSwitch(
+                                                      minWidth: 90.0,
+                                                      cornerRadius: 20.0,
+                                                      activeBgColors: [
+                                                        const [
+                                                          AppColorsInApp
+                                                              .colorLightRed
+                                                        ],
+                                                        [
+                                                          AppColorsInApp
+                                                              .colorSecondary!
+                                                        ],
+                                                      ],
+                                                      activeFgColor:
+                                                          Colors.white,
+                                                      inactiveBgColor:
+                                                          Colors.grey,
+                                                      inactiveFgColor:
+                                                          Colors.white,
+                                                      initialLabelIndex:
+                                                          isPopular ? 1 : 0,
+                                                      totalSwitches: 2,
+                                                      labels: const [
+                                                        'NO',
+                                                        'YES'
+                                                      ],
+                                                      radiusStyle: true,
+                                                      onToggle: (index) {
+                                                        setState(() {
+                                                          isPopular =
+                                                              index == 1;
+                                                        });
+                                                      },
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
                                               Padding(
                                                 padding: const EdgeInsets.only(
                                                     top: 20.0),
@@ -382,7 +592,6 @@ class _EditSubjectState extends State<EditSubject> {
                                                               type: FileType
                                                                   .image,
                                                             );
-
                                                             if (picked !=
                                                                 null) {
                                                               setState(() {
@@ -421,6 +630,7 @@ class _EditSubjectState extends State<EditSubject> {
                                                   ],
                                                 ),
                                               ),
+                                              // NARROW: extra fields + coupon
                                               if (width < 900)
                                                 Column(
                                                   mainAxisAlignment:
@@ -461,8 +671,7 @@ class _EditSubjectState extends State<EditSubject> {
                                                     Padding(
                                                       padding:
                                                           const EdgeInsets.only(
-                                                        top: 20.0,
-                                                      ),
+                                                              top: 20.0),
                                                       child: CustomTextField(
                                                         title: "Subject Price",
                                                         labelText:
@@ -487,155 +696,136 @@ class _EditSubjectState extends State<EditSubject> {
                                                       ),
                                                     ),
                                                     Padding(
-                                                        padding:
-                                                            const EdgeInsets
-                                                                .only(
-                                                                top: 25.0),
-                                                        child: Column(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: [
-                                                            const Text(
-                                                              "Will display:  ",
-                                                              style: TextStyle(
-                                                                  fontSize: 15,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .bold,
-                                                                  color: AppColorsInApp
-                                                                      .colorGrey),
-                                                            ),
-                                                            const SizedBox(
-                                                              height: 10,
-                                                            ),
-                                                            ToggleSwitch(
-                                                              minWidth: 90.0,
-                                                              cornerRadius:
-                                                                  20.0,
-                                                              activeBgColors: [
-                                                                const [
-                                                                  AppColorsInApp
-                                                                      .colorLightRed
-                                                                ],
-                                                                [
-                                                                  AppColorsInApp
-                                                                      .colorSecondary!
-                                                                ],
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                              top: 25.0),
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          const Text(
+                                                            "Will display:  ",
+                                                            style: TextStyle(
+                                                                fontSize: 15,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                                color: AppColorsInApp
+                                                                    .colorGrey),
+                                                          ),
+                                                          const SizedBox(
+                                                              height: 10),
+                                                          ToggleSwitch(
+                                                            minWidth: 90.0,
+                                                            cornerRadius: 20.0,
+                                                            activeBgColors: [
+                                                              const [
+                                                                AppColorsInApp
+                                                                    .colorLightRed
                                                               ],
-                                                              activeFgColor:
-                                                                  Colors.white,
-                                                              inactiveBgColor:
-                                                                  Colors.grey,
-                                                              inactiveFgColor:
-                                                                  Colors.white,
-                                                              initialLabelIndex:
-                                                                  willShow
-                                                                      ? 1
-                                                                      : 0,
-                                                              totalSwitches: 2,
-                                                              labels: const [
-                                                                'NO',
-                                                                'YES'
+                                                              [
+                                                                AppColorsInApp
+                                                                    .colorSecondary!
                                                               ],
-                                                              radiusStyle: true,
-                                                              onToggle:
-                                                                  (index) {
-                                                                setState(() {
-                                                                  if (index ==
-                                                                      0) {
-                                                                    willShow =
-                                                                        false;
-                                                                  } else {
-                                                                    willShow =
-                                                                        true;
-                                                                  }
-                                                                });
-                                                              },
-                                                            ),
-                                                          ],
-                                                        )),
+                                                            ],
+                                                            activeFgColor:
+                                                                Colors.white,
+                                                            inactiveBgColor:
+                                                                Colors.grey,
+                                                            inactiveFgColor:
+                                                                Colors.white,
+                                                            initialLabelIndex:
+                                                                willShow
+                                                                    ? 1
+                                                                    : 0,
+                                                            totalSwitches: 2,
+                                                            labels: const [
+                                                              'NO',
+                                                              'YES'
+                                                            ],
+                                                            radiusStyle: true,
+                                                            onToggle: (index) {
+                                                              setState(() {
+                                                                willShow =
+                                                                    index == 1;
+                                                              });
+                                                            },
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
                                                     Padding(
-                                                        padding:
-                                                            const EdgeInsets
-                                                                .only(
-                                                                top: 25.0),
-                                                        child: Column(
-                                                            crossAxisAlignment:
-                                                                CrossAxisAlignment
-                                                                    .start,
-                                                            children: [
-                                                              const Text(
-                                                                "Is Locked:  ",
-                                                                style: TextStyle(
-                                                                    fontSize:
-                                                                        15,
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .bold,
-                                                                    color: AppColorsInApp
-                                                                        .colorGrey),
-                                                              ),
-                                                              const SizedBox(
-                                                                height: 10,
-                                                              ),
-                                                              ToggleSwitch(
-                                                                minWidth: 90.0,
-                                                                cornerRadius:
-                                                                    20.0,
-                                                                activeBgColors: [
-                                                                  const [
-                                                                    AppColorsInApp
-                                                                        .colorLightRed
-                                                                  ],
-                                                                  [
-                                                                    AppColorsInApp
-                                                                        .colorSecondary!
-                                                                  ],
-                                                                ],
-                                                                activeFgColor:
-                                                                    Colors
-                                                                        .white,
-                                                                inactiveBgColor:
-                                                                    Colors.grey,
-                                                                inactiveFgColor:
-                                                                    Colors
-                                                                        .white,
-                                                                initialLabelIndex:
-                                                                    isLocked
-                                                                        ? 1
-                                                                        : 0,
-                                                                totalSwitches:
-                                                                    2,
-                                                                labels: const [
-                                                                  'NO',
-                                                                  'YES'
-                                                                ],
-                                                                radiusStyle:
-                                                                    true,
-                                                                onToggle:
-                                                                    (index) {
-                                                                  setState(() {
-                                                                    if (index ==
-                                                                        0) {
-                                                                      isLocked =
-                                                                          false;
-                                                                    } else {
-                                                                      isLocked =
-                                                                          true;
-                                                                    }
-                                                                  });
-                                                                },
-                                                              ),
-                                                            ])),
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                              top: 25.0),
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          const Text(
+                                                            "Is Locked:  ",
+                                                            style: TextStyle(
+                                                                fontSize: 15,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                                color: AppColorsInApp
+                                                                    .colorGrey),
+                                                          ),
+                                                          const SizedBox(
+                                                              height: 10),
+                                                          ToggleSwitch(
+                                                            minWidth: 90.0,
+                                                            cornerRadius: 20.0,
+                                                            activeBgColors: [
+                                                              const [
+                                                                AppColorsInApp
+                                                                    .colorLightRed
+                                                              ],
+                                                              [
+                                                                AppColorsInApp
+                                                                    .colorSecondary!
+                                                              ],
+                                                            ],
+                                                            activeFgColor:
+                                                                Colors.white,
+                                                            inactiveBgColor:
+                                                                Colors.grey,
+                                                            inactiveFgColor:
+                                                                Colors.white,
+                                                            initialLabelIndex:
+                                                                isLocked
+                                                                    ? 1
+                                                                    : 0,
+                                                            totalSwitches: 2,
+                                                            labels: const [
+                                                              'NO',
+                                                              'YES'
+                                                            ],
+                                                            radiusStyle: true,
+                                                            onToggle: (index) {
+                                                              setState(() {
+                                                                isLocked =
+                                                                    index == 1;
+                                                              });
+                                                            },
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    // Coupon fields for narrow
+                                                    _buildCouponFieldsNarrow(),
                                                   ],
                                                 ),
                                             ],
                                           ),
+                                          // WIDE: right column
                                           if (width > 900)
                                             Padding(
-                                              padding: EdgeInsets.only(
-                                                  left: width > 900 ? 50 : 10),
+                                              padding: const EdgeInsets.only(
+                                                  left: 50),
                                               child: Column(
                                                 mainAxisAlignment:
                                                     MainAxisAlignment
@@ -692,142 +882,134 @@ class _EditSubjectState extends State<EditSubject> {
                                                     ),
                                                   ),
                                                   Padding(
-                                                      padding:
-                                                          const EdgeInsets.only(
-                                                              top: 25.0),
-                                                      child: Column(
-                                                        crossAxisAlignment:
-                                                            CrossAxisAlignment
-                                                                .start,
-                                                        children: [
-                                                          const Text(
-                                                            "Will display:  ",
-                                                            style: TextStyle(
-                                                                fontSize: 15,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .bold,
-                                                                color: AppColorsInApp
-                                                                    .colorGrey),
-                                                          ),
-                                                          const SizedBox(
-                                                            height: 10,
-                                                          ),
-                                                          ToggleSwitch(
-                                                            minWidth: 90.0,
-                                                            cornerRadius: 20.0,
-                                                            activeBgColors: [
-                                                              const [
-                                                                AppColorsInApp
-                                                                    .colorLightRed
-                                                              ],
-                                                              [
-                                                                AppColorsInApp
-                                                                    .colorSecondary!
-                                                              ],
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                            top: 25.0),
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        const Text(
+                                                          "Will display:  ",
+                                                          style: TextStyle(
+                                                              fontSize: 15,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                              color:
+                                                                  AppColorsInApp
+                                                                      .colorGrey),
+                                                        ),
+                                                        const SizedBox(
+                                                            height: 10),
+                                                        ToggleSwitch(
+                                                          minWidth: 90.0,
+                                                          cornerRadius: 20.0,
+                                                          activeBgColors: [
+                                                            const [
+                                                              AppColorsInApp
+                                                                  .colorLightRed
                                                             ],
-                                                            activeFgColor:
-                                                                Colors.white,
-                                                            inactiveBgColor:
-                                                                Colors.grey,
-                                                            inactiveFgColor:
-                                                                Colors.white,
-                                                            initialLabelIndex:
-                                                                willShow
-                                                                    ? 1
-                                                                    : 0,
-                                                            totalSwitches: 2,
-                                                            labels: const [
-                                                              'NO',
-                                                              'YES'
+                                                            [
+                                                              AppColorsInApp
+                                                                  .colorSecondary!
                                                             ],
-                                                            radiusStyle: true,
-                                                            onToggle: (index) {
-                                                              setState(() {
-                                                                if (index ==
-                                                                    0) {
-                                                                  willShow =
-                                                                      false;
-                                                                } else {
-                                                                  willShow =
-                                                                      true;
-                                                                }
-                                                              });
-                                                            },
-                                                          ),
-                                                        ],
-                                                      )),
+                                                          ],
+                                                          activeFgColor:
+                                                              Colors.white,
+                                                          inactiveBgColor:
+                                                              Colors.grey,
+                                                          inactiveFgColor:
+                                                              Colors.white,
+                                                          initialLabelIndex:
+                                                              willShow ? 1 : 0,
+                                                          totalSwitches: 2,
+                                                          labels: const [
+                                                            'NO',
+                                                            'YES'
+                                                          ],
+                                                          radiusStyle: true,
+                                                          onToggle: (index) {
+                                                            setState(() {
+                                                              willShow =
+                                                                  index == 1;
+                                                            });
+                                                          },
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
                                                   Padding(
-                                                      padding:
-                                                          const EdgeInsets.only(
-                                                              top: 25.0),
-                                                      child: Column(
-                                                        crossAxisAlignment:
-                                                            CrossAxisAlignment
-                                                                .start,
-                                                        children: [
-                                                          const Text(
-                                                            "Is Locked:  ",
-                                                            style: TextStyle(
-                                                                fontSize: 15,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .bold,
-                                                                color: AppColorsInApp
-                                                                    .colorGrey),
-                                                          ),
-                                                          const SizedBox(
-                                                            height: 10,
-                                                          ),
-                                                          ToggleSwitch(
-                                                            minWidth: 90.0,
-                                                            cornerRadius: 20.0,
-                                                            activeBgColors: [
-                                                              const [
-                                                                AppColorsInApp
-                                                                    .colorLightRed
-                                                              ],
-                                                              [
-                                                                AppColorsInApp
-                                                                    .colorSecondary!
-                                                              ],
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                            top: 25.0),
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        const Text(
+                                                          "Is Locked:  ",
+                                                          style: TextStyle(
+                                                              fontSize: 15,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                              color:
+                                                                  AppColorsInApp
+                                                                      .colorGrey),
+                                                        ),
+                                                        const SizedBox(
+                                                            height: 10),
+                                                        ToggleSwitch(
+                                                          minWidth: 90.0,
+                                                          cornerRadius: 20.0,
+                                                          activeBgColors: [
+                                                            const [
+                                                              AppColorsInApp
+                                                                  .colorLightRed
                                                             ],
-                                                            activeFgColor:
-                                                                Colors.white,
-                                                            inactiveBgColor:
-                                                                Colors.grey,
-                                                            inactiveFgColor:
-                                                                Colors.white,
-                                                            initialLabelIndex:
-                                                                isLocked
-                                                                    ? 1
-                                                                    : 0,
-                                                            totalSwitches: 2,
-                                                            labels: const [
-                                                              'NO',
-                                                              'YES'
+                                                            [
+                                                              AppColorsInApp
+                                                                  .colorSecondary!
                                                             ],
-                                                            radiusStyle: true,
-                                                            onToggle: (index) {
-                                                              setState(() {
-                                                                if (index ==
-                                                                    0) {
-                                                                  isLocked =
-                                                                      false;
-                                                                } else {
-                                                                  isLocked =
-                                                                      true;
-                                                                }
-                                                              });
-                                                            },
-                                                          ),
-                                                        ],
-                                                      )),
+                                                          ],
+                                                          activeFgColor:
+                                                              Colors.white,
+                                                          inactiveBgColor:
+                                                              Colors.grey,
+                                                          inactiveFgColor:
+                                                              Colors.white,
+                                                          initialLabelIndex:
+                                                              isLocked ? 1 : 0,
+                                                          totalSwitches: 2,
+                                                          labels: const [
+                                                            'NO',
+                                                            'YES'
+                                                          ],
+                                                          radiusStyle: true,
+                                                          onToggle: (index) {
+                                                            setState(() {
+                                                              isLocked =
+                                                                  index == 1;
+                                                            });
+                                                          },
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
                                                 ],
                                               ),
                                             ),
                                         ],
                                       ),
+                                      // WIDE: coupon fields below both columns
+                                      if (width > 900)
+                                        Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: _buildCouponFieldsWide(),
+                                        ),
                                       Padding(
                                         padding: EdgeInsets.only(
                                             top: width < 900 ? 20 : 30),
@@ -849,33 +1031,35 @@ class _EditSubjectState extends State<EditSubject> {
                                                     _selectedCourseValue)
                                                 .first
                                                 .code;
-                                            SubjectModel subjectData =
-                                                SubjectModel(
-                                                    courseCode,
-                                                    widget
-                                                        .subjectData.courseType,
-                                                    _selectedCourseValue ??
-                                                        stringDefault,
-                                                    double.parse(
-                                                        priceController.text),
-                                                    double.parse(
-                                                        sellingPriceController
-                                                            .text),
-                                                    subjectCodeController.text
-                                                        .trim()
-                                                        .toUpperCase(),
-                                                    subjectDescriptionController
-                                                        .text,
-                                                    subjectNameController.text,
-                                                    widget.subjectData.image,
-                                                    int.parse(
-                                                        displayPriorityController
-                                                            .text),
-                                                    widget
-                                                        .subjectData.timeStamp,
-                                                    willShow,
-                                                    isLocked,
-                                                    isPopular);
+                                            SubjectModel subjectData = SubjectModel(
+                                                courseCode,
+                                                widget.subjectData.courseType,
+                                                _selectedCourseValue ??
+                                                    stringDefault,
+                                                double.parse(
+                                                    priceController.text),
+                                                double.parse(
+                                                    sellingPriceController
+                                                        .text),
+                                                subjectCodeController.text
+                                                    .trim()
+                                                    .toUpperCase(),
+                                                subjectDescriptionController
+                                                    .text,
+                                                subjectNameController.text,
+                                                widget.subjectData.image,
+                                                int.parse(
+                                                    displayPriorityController
+                                                        .text),
+                                                widget.subjectData.timeStamp,
+                                                willShow,
+                                                isLocked,
+                                                isPopular,
+                                                couponCodeController.text,
+                                                parseCouponDiscount(
+                                                    couponDiscountPriceController
+                                                        .text),
+                                                toTimestamp());
                                             await subjectViewModel
                                                 .updateSubject(subjectData,
                                                     widget.subjectData.docId)
@@ -889,7 +1073,6 @@ class _EditSubjectState extends State<EditSubject> {
                                                         widget
                                                             .subjectData.docId);
                                               }
-
                                               Helper.showSnackBarMessage(
                                                   msg:
                                                       "Subject edited successfully",
