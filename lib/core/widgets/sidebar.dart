@@ -14,6 +14,7 @@ import 'package:bbarna/question/screen/question_list.dart';
 import 'package:bbarna/quiz/screen/quiz_list.dart';
 import 'package:bbarna/student/screen/student_list.dart';
 import 'package:bbarna/subject/screen/subject_list.dart';
+import 'package:bbarna/teacher/screen/teacher_list.dart';
 import 'package:bbarna/topic/screen/topic_list.dart';
 import 'package:bbarna/units/screen/unit_list.dart';
 
@@ -41,7 +42,8 @@ class _SidebarState extends State<Sidebar> {
     const AudioList(),
     const QuizList(),
     const QuestionList(),
-    const StudentList()
+    const StudentList(),
+    const TeacherList(),
   ];
 
   List<String> drawerItems = [
@@ -56,6 +58,7 @@ class _SidebarState extends State<Sidebar> {
     "QUIZ",
     "QUESTIONS",
     "STUDENTS",
+    "TEACHERS",
   ];
 
   List<IconData> iconList = [
@@ -70,6 +73,7 @@ class _SidebarState extends State<Sidebar> {
     Icons.quiz_outlined,
     Icons.question_mark_sharp,
     Icons.people,
+    Icons.people_alt_outlined,
   ];
   @override
   void initState() {

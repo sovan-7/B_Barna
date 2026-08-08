@@ -28,6 +28,7 @@ const String quiz = "quiz";
 const String banners = "banners";
 const String student = "student";
 const String enrolledCourse = "enrolledCourses";
+const String teacher = "teacher";
 
 
 

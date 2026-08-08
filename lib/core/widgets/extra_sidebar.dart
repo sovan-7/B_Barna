@@ -28,6 +28,7 @@ class _ExtraSideBarState extends State<ExtraSideBar> {
     "QUIZ",
     "QUESTIONS",
     "STUDENTS",
+    "TEACHERS",
   ];
 
   List<IconData> iconList = [
@@ -42,6 +43,7 @@ class _ExtraSideBarState extends State<ExtraSideBar> {
     Icons.quiz_outlined,
     Icons.question_mark_sharp,
     Icons.people,
+    Icons.people_alt_outlined,
   ];
   @override
   void initState() {
