@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:bbarna/core/widgets/app_header.dart';
-import 'package:bbarna/core/widgets/choose_image.dart';
 import 'package:bbarna/core/widgets/custom_text_field.dart';
 import 'package:bbarna/core/widgets/extra_sidebar.dart';
 import 'package:bbarna/core/widgets/save_button.dart';
@@ -154,6 +153,134 @@ class _AddTeacherState extends AddTeacherTestHooks {
     }
   }
 
+  Widget _sectionLabel(String text) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 0.4,
+        color: AppColorsInApp.colorGrey,
+      ),
+    );
+  }
+
+  Widget _buildAvatarPicker() {
+    return Center(
+      child: Column(
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                height: 104,
+                width: 104,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColorsInApp.colorGrey.withValues(alpha: .12),
+                  image: selectedImageBytes != null
+                      ? DecorationImage(
+                          image: MemoryImage(selectedImageBytes!),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
+                ),
+                alignment: Alignment.center,
+                child: selectedImageBytes == null
+                    ? Icon(Icons.person,
+                        size: 48,
+                        color: AppColorsInApp.colorGrey.withValues(alpha: .6))
+                    : null,
+              ),
+              Positioned(
+                bottom: -2,
+                right: -2,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: _onSelectImage,
+                  child: Container(
+                    height: 34,
+                    width: 34,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColorsInApp.colorSecondary,
+                      border: Border.all(
+                          color: AppColorsInApp.colorWhite, width: 2),
+                    ),
+                    child: const Icon(Icons.camera_alt,
+                        size: 16, color: AppColorsInApp.colorWhite),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            selectedImageBytes == null
+                ? "Upload a photo"
+                : "Photo selected — tap to change",
+            style: TextStyle(
+                fontSize: 12,
+                color: AppColorsInApp.colorGrey.withValues(alpha: .9)),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            "JPG or PNG, up to 5MB",
+            style: TextStyle(
+                fontSize: 11,
+                color: AppColorsInApp.colorGrey.withValues(alpha: .7)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModuleAccessChips() {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        for (int i = 0; i < moduleList.length; i++)
+          FilterChip(
+            key: Key('module_checkbox_${moduleList[i]}'),
+            avatar: Icon(
+              moduleIconList[i],
+              size: 17,
+              color: selectedModules.contains(moduleList[i])
+                  ? AppColorsInApp.colorWhite
+                  : AppColorsInApp.colorGrey,
+            ),
+            label: Text(
+              moduleList[i],
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: selectedModules.contains(moduleList[i])
+                    ? AppColorsInApp.colorWhite
+                    : AppColorsInApp.colorBlack1,
+              ),
+            ),
+            showCheckmark: false,
+            selected: selectedModules.contains(moduleList[i]),
+            selectedColor: AppColorsInApp.colorSecondary,
+            backgroundColor: AppColorsInApp.colorGrey.withValues(alpha: .08),
+            side: BorderSide.none,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20)),
+            onSelected: (checked) {
+              setState(() {
+                if (checked) {
+                  selectedModules.add(moduleList[i]);
+                } else {
+                  selectedModules.remove(moduleList[i]);
+                }
+              });
+            },
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     double width = MediaQuery.of(context).size.width;
@@ -178,142 +305,150 @@ class _AddTeacherState extends AddTeacherTestHooks {
                     const Expanded(child: ExtraSideBar(sidebarIndex: 11)),
                   Expanded(
                     flex: 5,
-                    child: SingleChildScrollView(
-                      child: Padding(
-                        padding: const EdgeInsets.all(30.0),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            if (selectedImageBytes != null)
-                              Container(
-                                height: 150,
-                                width: 150,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(75),
-                                  image: DecorationImage(
-                                    image: MemoryImage(selectedImageBytes!),
-                                    fit: BoxFit.cover,
+                    child: Container(
+                      color: AppColorsInApp.colorGrey.withValues(alpha: .06),
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: width < 900 ? 16 : 40,
+                          vertical: 30,
+                        ),
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 480),
+                            child: Container(
+                              padding: const EdgeInsets.all(28),
+                              decoration: BoxDecoration(
+                                color: AppColorsInApp.colorWhite,
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColorsInApp.colorGrey
+                                        .withValues(alpha: .18),
+                                    blurRadius: 24,
+                                    offset: const Offset(0, 10),
                                   ),
-                                ),
+                                ],
                               ),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 10),
-                              child: ChooseImage(
-                                onSelectImage: _onSelectImage,
-                                title: selectedImageBytes == null
-                                    ? "Choose Photo"
-                                    : "Change Photo",
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 20),
-                              child: CustomTextField(
-                                key: const Key('teacher_name_field'),
-                                labelText: "name",
-                                title: "Name",
-                                textEditingController: nameController,
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 15),
-                              child: CustomTextField(
-                                key: const Key('teacher_username_field'),
-                                labelText: "username",
-                                title: "Username",
-                                textEditingController: usernameController,
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 15),
-                              child: CustomTextField(
-                                key: const Key('teacher_password_field'),
-                                labelText: "password",
-                                title: "Password",
-                                textEditingController: passwordController,
-                                passwordVisible: isPasswordVisible,
-                                onIconPress: () {
-                                  setState(() {
-                                    isPasswordVisible = !isPasswordVisible;
-                                  });
-                                },
-                              ),
-                            ),
-                            const Align(
-                              alignment: Alignment.centerLeft,
-                              child: Padding(
-                                padding: EdgeInsets.only(top: 4.0),
-                                child: Text(
-                                  "Min 8 characters. Using both letters and numbers is recommended.",
-                                  style: TextStyle(
-                                      fontSize: 11,
-                                      color: AppColorsInApp.colorGrey),
-                                ),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 20),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Text(
-                                    "Module Access",
+                                    "Add New Teacher",
                                     style: TextStyle(
-                                        fontSize: 15,
+                                        fontSize: 20,
                                         fontWeight: FontWeight.bold,
-                                        color: AppColorsInApp.colorGrey),
+                                        color: AppColorsInApp.colorBlack1),
                                   ),
-                                  Container(
-                                    width: 350,
-                                    margin: const EdgeInsets.only(top: 10),
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(10),
-                                      color: AppColorsInApp.colorWhite,
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "Create a login and grant module access for a new teacher.",
+                                    style: TextStyle(
+                                        fontSize: 12.5,
+                                        color: AppColorsInApp.colorGrey
+                                            .withValues(alpha: .9)),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  _buildAvatarPicker(),
+                                  const SizedBox(height: 28),
+                                  _sectionLabel("BASIC INFORMATION"),
+                                  const SizedBox(height: 14),
+                                  CustomTextField(
+                                    key: const Key('teacher_name_field'),
+                                    labelText: "name",
+                                    title: "Name",
+                                    textEditingController: nameController,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  CustomTextField(
+                                    key: const Key('teacher_username_field'),
+                                    labelText: "username",
+                                    title: "Username",
+                                    textEditingController: usernameController,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  CustomTextField(
+                                    key: const Key('teacher_password_field'),
+                                    labelText: "password",
+                                    title: "Password",
+                                    textEditingController: passwordController,
+                                    passwordVisible: isPasswordVisible,
+                                    onIconPress: () {
+                                      setState(() {
+                                        isPasswordVisible = !isPasswordVisible;
+                                      });
+                                    },
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 6.0),
+                                    child: Text(
+                                      "Min 8 characters. Using both letters and numbers is recommended.",
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppColorsInApp.colorGrey
+                                              .withValues(alpha: .9)),
                                     ),
-                                    child: Column(
-                                      children: [
-                                        for (int i = 0;
-                                            i < moduleList.length;
-                                            i++)
-                                          CheckboxListTile(
-                                            key: Key(
-                                                'module_checkbox_${moduleList[i]}'),
-                                            dense: true,
-                                            controlAffinity:
-                                                ListTileControlAffinity
-                                                    .leading,
-                                            secondary:
-                                                Icon(moduleIconList[i]),
-                                            title: Text(moduleList[i]),
-                                            value: selectedModules
-                                                .contains(moduleList[i]),
-                                            onChanged: (checked) {
-                                              setState(() {
-                                                if (checked ?? false) {
-                                                  selectedModules
-                                                      .add(moduleList[i]);
-                                                } else {
-                                                  selectedModules
-                                                      .remove(moduleList[i]);
-                                                }
-                                              });
-                                            },
-                                          ),
-                                      ],
-                                    ),
+                                  ),
+                                  const SizedBox(height: 28),
+                                  _sectionLabel("MODULE ACCESS"),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "Select the sections this teacher can manage.",
+                                    style: TextStyle(
+                                        fontSize: 12.5,
+                                        color: AppColorsInApp.colorGrey
+                                            .withValues(alpha: .9)),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _buildModuleAccessChips(),
+                                  const SizedBox(height: 32),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      OutlinedButton(
+                                        onPressed: isSaving
+                                            ? null
+                                            : () => Navigator.pop(context),
+                                        style: OutlinedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 20, vertical: 12),
+                                          shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(10)),
+                                          side: BorderSide(
+                                              color: AppColorsInApp.colorGrey
+                                                  .withValues(alpha: .5)),
+                                        ),
+                                        child: const Text("Cancel",
+                                            style: TextStyle(
+                                                color: AppColorsInApp
+                                                    .colorBlack1)),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      isSaving
+                                          ? const Padding(
+                                              padding: EdgeInsets.symmetric(
+                                                  horizontal: 12),
+                                              child: SizedBox(
+                                                height: 24,
+                                                width: 24,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                        strokeWidth: 2.5),
+                                              ),
+                                            )
+                                          : SaveButton(
+                                              key: const Key(
+                                                  'teacher_save_button'),
+                                              onPRess: _onSave,
+                                              buttonColor: AppColorsInApp
+                                                  .colorSecondary,
+                                            ),
+                                    ],
                                   ),
                                 ],
                               ),
                             ),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 30),
-                              child: isSaving
-                                  ? const CircularProgressIndicator()
-                                  : SaveButton(
-                                      key: const Key('teacher_save_button'),
-                                      onPRess: _onSave,
-                                    ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
