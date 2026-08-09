@@ -30,5 +30,36 @@ const String student = "student";
 const String enrolledCourse = "enrolledCourses";
 const String teacher = "teacher";
 
+/// Sidebar module names/icons, index-aligned. [Sidebar] and [ExtraSideBar]
+/// render navigation from this list; [AddTeacher] generates its
+/// module-access checkboxes from the same list so the two never drift apart.
+const List<String> moduleList = [
+  "BANNERS",
+  "COURSES",
+  "SUBJECT",
+  "UNIT",
+  "TOPIC",
+  "VIDEOS",
+  "PDF",
+  "AUDIO",
+  "QUIZ",
+  "QUESTIONS",
+  "STUDENTS",
+  "TEACHERS",
+];
 
+const List<IconData> moduleIconList = [
+  Icons.image,
+  Icons.subject_outlined,
+  Icons.book,
+  Icons.ad_units,
+  Icons.topic_outlined,
+  Icons.video_file,
+  Icons.picture_as_pdf,
+  Icons.audio_file,
+  Icons.quiz_outlined,
+  Icons.question_mark_sharp,
+  Icons.people,
+  Icons.people_alt_outlined,
+];
 

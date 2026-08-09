@@ -16,6 +16,7 @@ void main() {
         username: 'jane_doe',
         password: 'hashed-password-value',
         timeStamp: 1700000000000,
+        moduleAccess: const ['COURSES', 'SUBJECT'],
       );
 
       expect(model.toMap(), {
@@ -24,6 +25,7 @@ void main() {
         'username': 'jane_doe',
         'password': 'hashed-password-value',
         'timeStamp': 1700000000000,
+        'module_access': ['COURSES', 'SUBJECT'],
       });
     });
 
@@ -36,6 +38,7 @@ void main() {
         'username': 'jane_doe',
         'password': 'hashed-password-value',
         'timeStamp': 1700000000000,
+        'module_access': ['COURSES', 'SUBJECT'],
       });
 
       final model = TeacherModel.fromDocumentSnapshot(snapshot);
@@ -46,6 +49,7 @@ void main() {
       expect(model.username, 'jane_doe');
       expect(model.password, 'hashed-password-value');
       expect(model.timeStamp, 1700000000000);
+      expect(model.moduleAccess, ['COURSES', 'SUBJECT']);
     });
 
     test(
@@ -64,6 +68,7 @@ void main() {
       expect(model.username, 'NA'); // stringDefault
       expect(model.password, 'NA'); // stringDefault
       expect(model.timeStamp, -1); // intDefault
+      expect(model.moduleAccess, isEmpty);
     });
   });
 }

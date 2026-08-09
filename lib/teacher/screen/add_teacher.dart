@@ -6,6 +6,7 @@ import 'package:bbarna/core/widgets/custom_text_field.dart';
 import 'package:bbarna/core/widgets/extra_sidebar.dart';
 import 'package:bbarna/core/widgets/save_button.dart';
 import 'package:bbarna/resources/app_colors.dart';
+import 'package:bbarna/resources/constant.dart';
 import 'package:bbarna/teacher/viewModel/teacher_view_model.dart';
 import 'package:bbarna/utils/helper.dart';
 import 'package:file_picker/file_picker.dart';
@@ -40,6 +41,8 @@ class _AddTeacherState extends AddTeacherTestHooks {
 
   PlatformFile? selectedImageFile;
   Uint8List? selectedImageBytes;
+
+  final Set<String> selectedModules = {};
 
   static const int _maxImageBytes = 5 * 1024 * 1024;
   static const Set<String> _allowedImageExtensions = {'jpg', 'jpeg', 'png'};
@@ -121,6 +124,17 @@ class _AddTeacherState extends AddTeacherTestHooks {
       return;
     }
 
+    if (selectedModules.isEmpty) {
+      Helper.showSnackBarMessage(
+          msg: "Please select at least one module", isSuccess: false);
+      return;
+    }
+
+    // Preserve moduleList's order rather than Set iteration order, which is
+    // insertion-order-dependent and would make the saved list order flaky.
+    final List<String> moduleAccess =
+        moduleList.where(selectedModules.contains).toList();
+
     setState(() => isSaving = true);
     final TeacherViewModel teacherViewModel =
         Provider.of<TeacherViewModel>(context, listen: false);
@@ -129,6 +143,7 @@ class _AddTeacherState extends AddTeacherTestHooks {
       username: username,
       password: password,
       image: imageBytes,
+      moduleAccess: moduleAccess,
     );
 
     if (!mounted) return;
@@ -233,6 +248,60 @@ class _AddTeacherState extends AddTeacherTestHooks {
                                       fontSize: 11,
                                       color: AppColorsInApp.colorGrey),
                                 ),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    "Module Access",
+                                    style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColorsInApp.colorGrey),
+                                  ),
+                                  Container(
+                                    width: 350,
+                                    margin: const EdgeInsets.only(top: 10),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(10),
+                                      color: AppColorsInApp.colorWhite,
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        for (int i = 0;
+                                            i < moduleList.length;
+                                            i++)
+                                          CheckboxListTile(
+                                            key: Key(
+                                                'module_checkbox_${moduleList[i]}'),
+                                            dense: true,
+                                            controlAffinity:
+                                                ListTileControlAffinity
+                                                    .leading,
+                                            secondary:
+                                                Icon(moduleIconList[i]),
+                                            title: Text(moduleList[i]),
+                                            value: selectedModules
+                                                .contains(moduleList[i]),
+                                            onChanged: (checked) {
+                                              setState(() {
+                                                if (checked ?? false) {
+                                                  selectedModules
+                                                      .add(moduleList[i]);
+                                                } else {
+                                                  selectedModules
+                                                      .remove(moduleList[i]);
+                                                }
+                                              });
+                                            },
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             Padding(

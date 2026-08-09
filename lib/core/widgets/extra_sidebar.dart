@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:bbarna/core/widgets/sidebar.dart';
 import 'package:bbarna/core/widgets/sidebar_widget.dart';
 import 'package:bbarna/resources/app_colors.dart';
+import 'package:bbarna/resources/constant.dart';
 
 class ExtraSideBar extends StatefulWidget {
   final int sidebarIndex;
@@ -16,35 +17,9 @@ class ExtraSideBar extends StatefulWidget {
 class _ExtraSideBarState extends State<ExtraSideBar> {
   int selectedIndex = 0;
 
-  List<String> drawerItems = [
-    "BANNERS",
-    "COURSES",
-    "SUBJECT",
-    "UNIT",
-    "TOPIC",
-    "VIDEOS",
-    "PDF",
-    "AUDIO",
-    "QUIZ",
-    "QUESTIONS",
-    "STUDENTS",
-    "TEACHERS",
-  ];
+  List<String> drawerItems = moduleList;
 
-  List<IconData> iconList = [
-    Icons.image,
-    Icons.subject_outlined,
-    Icons.book,
-    Icons.ad_units,
-    Icons.topic_outlined,
-    Icons.video_file,
-    Icons.picture_as_pdf,
-    Icons.audio_file,
-    Icons.quiz_outlined,
-    Icons.question_mark_sharp,
-    Icons.people,
-    Icons.people_alt_outlined,
-  ];
+  List<IconData> iconList = moduleIconList;
   @override
   void initState() {
     selectedIndex = widget.sidebarIndex;
