@@ -111,6 +111,7 @@ void main() {
         username: 'jane_doe',
         password: 'hash1',
         timeStamp: 1,
+        moduleAccess: const ['COURSES'],
       );
 
       await repo.addTeacher(model);
@@ -151,6 +152,7 @@ void main() {
         username: 'jane_doe',
         password: 'hash1',
         timeStamp: 1,
+        moduleAccess: const ['COURSES'],
       );
 
       await expectLater(

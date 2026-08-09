@@ -29,6 +29,7 @@ class TeacherViewModel with ChangeNotifier {
     required String username,
     required String password,
     required Uint8List image,
+    required List<String> moduleAccess,
   }) async {
     final String normalizedUsername = username.toLowerCase();
     final String storageKey = _teacherRepo.generateStorageKey();
@@ -51,6 +52,7 @@ class TeacherViewModel with ChangeNotifier {
       username: normalizedUsername,
       password: hashedPassword,
       timeStamp: DateTime.now().millisecondsSinceEpoch,
+      moduleAccess: moduleAccess,
     );
 
     try {

@@ -45,6 +45,7 @@ void main() {
         username: 'jane_doe',
         password: rawPassword,
         image: Uint8List.fromList([1, 2, 3]),
+        moduleAccess: const ['COURSES'],
       );
 
       final captured =
@@ -67,6 +68,7 @@ void main() {
         username: 'Jane_Doe',
         password: 'password123',
         image: Uint8List.fromList([1, 2, 3]),
+        moduleAccess: const ['COURSES'],
       );
 
       final captured =
@@ -88,6 +90,7 @@ void main() {
         username: 'jane_doe',
         password: 'password123',
         image: Uint8List.fromList([1, 2, 3]),
+        moduleAccess: const ['COURSES'],
       );
 
       verifyInOrder([
@@ -108,6 +111,7 @@ void main() {
         username: 'jane_doe',
         password: 'password123',
         image: Uint8List.fromList([1, 2, 3]),
+        moduleAccess: const ['COURSES'],
       );
 
       expect(result, isTrue);
@@ -115,6 +119,27 @@ void main() {
           verify(() => repo.addTeacher(captureAny())).captured.single
               as TeacherModel;
       expect(captured.imageUrl, 'https://example.com/photo.jpg');
+    });
+
+    test('passes the selected moduleAccess through to the persisted model',
+        () async {
+      when(() => repo.generateStorageKey()).thenReturn('key-1');
+      when(() => repo.uploadTeacherImage(any(), any()))
+          .thenAnswer((_) async => 'https://example.com/photo.jpg');
+      when(() => repo.addTeacher(any())).thenAnswer((_) async {});
+
+      await viewModel.addTeacher(
+        name: 'Jane Doe',
+        username: 'jane_doe',
+        password: 'password123',
+        image: Uint8List.fromList([1, 2, 3]),
+        moduleAccess: const ['COURSES', 'SUBJECT'],
+      );
+
+      final captured =
+          verify(() => repo.addTeacher(captureAny())).captured.single
+              as TeacherModel;
+      expect(captured.moduleAccess, ['COURSES', 'SUBJECT']);
     });
   });
 
@@ -138,6 +163,7 @@ void main() {
         username: 'jane_doe',
         password: 'password123',
         image: Uint8List.fromList([1, 2, 3]),
+        moduleAccess: const ['COURSES'],
       );
 
       expect(result, isFalse);
@@ -162,6 +188,7 @@ void main() {
         username: 'jane_doe',
         password: 'password123',
         image: Uint8List.fromList([1, 2, 3]),
+        moduleAccess: const ['COURSES'],
       );
 
       expect(result, isFalse);
@@ -178,6 +205,7 @@ void main() {
           username: 'jane_doe',
           password: 'x',
           timeStamp: 1,
+          moduleAccess: const ['COURSES'],
         ),
         TeacherModel(
           docId: 'john_smith',
@@ -186,6 +214,7 @@ void main() {
           username: 'john_smith',
           password: 'x',
           timeStamp: 2,
+          moduleAccess: const ['SUBJECT'],
         ),
       ];
       viewModel.copyTeacherList = viewModel.teacherList;

@@ -53,6 +53,12 @@ void selectFakeImage(WidgetTester tester,
   );
 }
 
+Future<void> checkModule(WidgetTester tester, String module) async {
+  await tester.ensureVisible(find.byKey(Key('module_checkbox_$module')));
+  await tester.tap(find.byKey(Key('module_checkbox_$module')));
+  await tester.pump();
+}
+
 void main() {
   setUpAll(() {
     registerFallbackValue(TeacherModelFake());
@@ -76,6 +82,7 @@ void main() {
     selectFakeImage(tester);
     await tester.enterText(find.byKey(const Key('teacher_username_field')), 'jane_doe');
     await tester.enterText(find.byKey(const Key('teacher_password_field')), 'password123');
+    await tester.ensureVisible(find.byKey(const Key('teacher_save_button')));
     await tester.tap(find.byKey(const Key('teacher_save_button')));
     await tester.pumpAndSettle();
 
@@ -89,6 +96,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('teacher_name_field')), 'Jane Doe');
     await tester.enterText(find.byKey(const Key('teacher_username_field')), 'jd');
     await tester.enterText(find.byKey(const Key('teacher_password_field')), 'password123');
+    await tester.ensureVisible(find.byKey(const Key('teacher_save_button')));
     await tester.tap(find.byKey(const Key('teacher_save_button')));
     await tester.pumpAndSettle();
 
@@ -102,6 +110,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('teacher_name_field')), 'Jane Doe');
     await tester.enterText(find.byKey(const Key('teacher_username_field')), 'jane doe!');
     await tester.enterText(find.byKey(const Key('teacher_password_field')), 'password123');
+    await tester.ensureVisible(find.byKey(const Key('teacher_save_button')));
     await tester.tap(find.byKey(const Key('teacher_save_button')));
     await tester.pumpAndSettle();
 
@@ -115,6 +124,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('teacher_name_field')), 'Jane Doe');
     await tester.enterText(find.byKey(const Key('teacher_username_field')), 'jane_doe');
     await tester.enterText(find.byKey(const Key('teacher_password_field')), 'short1');
+    await tester.ensureVisible(find.byKey(const Key('teacher_save_button')));
     await tester.tap(find.byKey(const Key('teacher_save_button')));
     await tester.pumpAndSettle();
 
@@ -129,6 +139,8 @@ void main() {
     await tester.enterText(find.byKey(const Key('teacher_name_field')), 'Jane Doe');
     await tester.enterText(find.byKey(const Key('teacher_username_field')), 'jane_doe');
     await tester.enterText(find.byKey(const Key('teacher_password_field')), 'abcdefgh');
+    await checkModule(tester, 'COURSES');
+    await tester.ensureVisible(find.byKey(const Key('teacher_save_button')));
     await tester.tap(find.byKey(const Key('teacher_save_button')));
     await tester.pumpAndSettle();
 
@@ -143,6 +155,8 @@ void main() {
     await tester.enterText(find.byKey(const Key('teacher_name_field')), 'Jane Doe');
     await tester.enterText(find.byKey(const Key('teacher_username_field')), 'jane_doe');
     await tester.enterText(find.byKey(const Key('teacher_password_field')), '12345678');
+    await checkModule(tester, 'COURSES');
+    await tester.ensureVisible(find.byKey(const Key('teacher_save_button')));
     await tester.tap(find.byKey(const Key('teacher_save_button')));
     await tester.pumpAndSettle();
 
@@ -154,6 +168,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('teacher_name_field')), 'Jane Doe');
     await tester.enterText(find.byKey(const Key('teacher_username_field')), 'jane_doe');
     await tester.enterText(find.byKey(const Key('teacher_password_field')), 'password123');
+    await tester.ensureVisible(find.byKey(const Key('teacher_save_button')));
     await tester.tap(find.byKey(const Key('teacher_save_button')));
     await tester.pumpAndSettle();
 
@@ -167,6 +182,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('teacher_name_field')), 'Jane Doe');
     await tester.enterText(find.byKey(const Key('teacher_username_field')), 'jane_doe');
     await tester.enterText(find.byKey(const Key('teacher_password_field')), 'password123');
+    await tester.ensureVisible(find.byKey(const Key('teacher_save_button')));
     await tester.tap(find.byKey(const Key('teacher_save_button')));
     await tester.pumpAndSettle();
 
@@ -180,6 +196,20 @@ void main() {
     await tester.enterText(find.byKey(const Key('teacher_name_field')), 'Jane Doe');
     await tester.enterText(find.byKey(const Key('teacher_username_field')), 'jane_doe');
     await tester.enterText(find.byKey(const Key('teacher_password_field')), 'password123');
+    await tester.ensureVisible(find.byKey(const Key('teacher_save_button')));
+    await tester.tap(find.byKey(const Key('teacher_save_button')));
+    await tester.pumpAndSettle();
+
+    verifyNever(() => repo.addTeacher(any()));
+  });
+
+  testWidgets('blocks submission when no module is selected', (tester) async {
+    await pumpAddTeacher(tester, viewModel);
+    selectFakeImage(tester);
+    await tester.enterText(find.byKey(const Key('teacher_name_field')), 'Jane Doe');
+    await tester.enterText(find.byKey(const Key('teacher_username_field')), 'jane_doe');
+    await tester.enterText(find.byKey(const Key('teacher_password_field')), 'password123');
+    await tester.ensureVisible(find.byKey(const Key('teacher_save_button')));
     await tester.tap(find.byKey(const Key('teacher_save_button')));
     await tester.pumpAndSettle();
 
@@ -192,9 +222,30 @@ void main() {
     await tester.enterText(find.byKey(const Key('teacher_name_field')), 'Jane Doe');
     await tester.enterText(find.byKey(const Key('teacher_username_field')), 'jane_doe');
     await tester.enterText(find.byKey(const Key('teacher_password_field')), 'password123');
+    await checkModule(tester, 'COURSES');
+    await tester.ensureVisible(find.byKey(const Key('teacher_save_button')));
     await tester.tap(find.byKey(const Key('teacher_save_button')));
     await tester.pumpAndSettle();
 
     verify(() => repo.addTeacher(any())).called(1);
+  });
+
+  testWidgets('saves only the checked modules, in moduleList order',
+      (tester) async {
+    await pumpAddTeacher(tester, viewModel);
+    selectFakeImage(tester);
+    await tester.enterText(find.byKey(const Key('teacher_name_field')), 'Jane Doe');
+    await tester.enterText(find.byKey(const Key('teacher_username_field')), 'jane_doe');
+    await tester.enterText(find.byKey(const Key('teacher_password_field')), 'password123');
+    await checkModule(tester, 'TOPIC');
+    await checkModule(tester, 'COURSES');
+    await tester.ensureVisible(find.byKey(const Key('teacher_save_button')));
+    await tester.tap(find.byKey(const Key('teacher_save_button')));
+    await tester.pumpAndSettle();
+
+    final captured =
+        verify(() => repo.addTeacher(captureAny())).captured.single
+            as TeacherModel;
+    expect(captured.moduleAccess, ['COURSES', 'TOPIC']);
   });
 }

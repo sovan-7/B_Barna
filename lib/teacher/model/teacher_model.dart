@@ -8,6 +8,7 @@ class TeacherModel {
   String username = stringDefault;
   String password = stringDefault;
   int timeStamp = intDefault;
+  List<String> moduleAccess = const [];
 
   TeacherModel({
     required this.docId,
@@ -16,6 +17,7 @@ class TeacherModel {
     required this.username,
     required this.password,
     required this.timeStamp,
+    required this.moduleAccess,
   });
 
   Map<String, dynamic> toMap() {
@@ -25,6 +27,7 @@ class TeacherModel {
       "username": username,
       "password": password,
       "timeStamp": timeStamp,
+      "module_access": moduleAccess,
     };
   }
 
@@ -34,5 +37,6 @@ class TeacherModel {
         imageUrl = doc.data()!["image_url"] ?? stringDefault,
         username = doc.data()!["username"] ?? stringDefault,
         password = doc.data()!["password"] ?? stringDefault,
-        timeStamp = doc.data()!["timeStamp"] ?? intDefault;
+        timeStamp = doc.data()!["timeStamp"] ?? intDefault,
+        moduleAccess = List<String>.from(doc.data()!["module_access"] ?? []);
 }
