@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:bbarna/resources/constant.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:bbarna/core/widgets/custom_text_field.dart';
 import 'package:bbarna/core/widgets/sidebar.dart';
@@ -173,13 +176,21 @@ class _LoginScreenState extends State<LoginScreen> {
   Future loginAdmin(String mobileNo, String password) async {
     try {
       FirebaseFirestore firestore = FirebaseFirestore.instance;
-      CollectionReference collectionReference = firestore.collection(admin);
+      CollectionReference collectionReference = firestore.collection(teacher);
+      // Teacher docs store a SHA-256 hash (see TeacherViewModel.addTeacher),
+      // never the raw password — hash the typed password the same way
+      // before comparing, or this query never matches.
+      final String hashedPassword =
+          sha256.convert(utf8.encode(password)).toString();
       QuerySnapshot querySnapshot = await collectionReference
-          .where('admin_name', isEqualTo: mobileNo)
-          .where('admin_password', isEqualTo: password)
+          .where('username', isEqualTo: mobileNo)
+          .where('password', isEqualTo: hashedPassword)
           .get();
       if (querySnapshot.docs.isNotEmpty) {
+        final data = querySnapshot.docs.first.data() as Map<String, dynamic>;
         sharedPreferences.setString("admin_id", querySnapshot.docs.first.id);
+        sharedPreferences.setStringList(moduleAccessPrefsKey,
+            List<String>.from(data['module_access'] ?? []));
         return querySnapshot.docs.first.id;
       } else {
         Helper.showSnackBarMessage(

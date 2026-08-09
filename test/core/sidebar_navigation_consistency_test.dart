@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:bbarna/core/widgets/extra_sidebar.dart';
+import 'package:bbarna/core/widgets/sidebar.dart';
 import 'package:bbarna/core/widgets/sidebar_widget.dart';
 
 // NOTE on scope: `Sidebar` and `ExtraSideBar` each hold their own

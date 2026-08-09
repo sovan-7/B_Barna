@@ -30,6 +30,7 @@ class TeacherViewModel with ChangeNotifier {
     required String password,
     required Uint8List image,
     required List<String> moduleAccess,
+    required String role,
   }) async {
     final String normalizedUsername = username.toLowerCase();
     final String storageKey = _teacherRepo.generateStorageKey();
@@ -53,6 +54,7 @@ class TeacherViewModel with ChangeNotifier {
       password: hashedPassword,
       timeStamp: DateTime.now().millisecondsSinceEpoch,
       moduleAccess: moduleAccess,
+      role: role,
     );
 
     try {
@@ -64,6 +66,58 @@ class TeacherViewModel with ChangeNotifier {
     } catch (e) {
       Helper.showSnackBarMessage(
           msg: "Error while creating teacher", isSuccess: false);
+      return false;
+    }
+
+    return true;
+  }
+
+  /// Returns true on success. On failure, shows a snackbar and returns false
+  /// — same contract as [addTeacher]. Username/docId never change here (see
+  /// [TeacherRepo.updateTeacher]); [newPassword] left null or empty keeps
+  /// [original]'s existing hash instead of re-hashing an empty string, and
+  /// [newImage] left null keeps [original]'s existing photo instead of
+  /// re-uploading.
+  Future<bool> updateTeacher({
+    required TeacherModel original,
+    required String name,
+    String? newPassword,
+    required List<String> moduleAccess,
+    required String role,
+    Uint8List? newImage,
+  }) async {
+    String imageUrl = original.imageUrl;
+    if (newImage != null) {
+      final String storageKey = _teacherRepo.generateStorageKey();
+      try {
+        imageUrl = await _teacherRepo.uploadTeacherImage(newImage, storageKey);
+      } catch (e) {
+        Helper.showSnackBarMessage(
+            msg: "Error while uploading photo", isSuccess: false);
+        return false;
+      }
+    }
+
+    final String password = (newPassword == null || newPassword.isEmpty)
+        ? original.password
+        : sha256.convert(utf8.encode(newPassword)).toString();
+
+    final TeacherModel updated = TeacherModel(
+      docId: original.docId,
+      name: name,
+      imageUrl: imageUrl,
+      username: original.username,
+      password: password,
+      timeStamp: original.timeStamp,
+      moduleAccess: moduleAccess,
+      role: role,
+    );
+
+    try {
+      await _teacherRepo.updateTeacher(updated);
+    } catch (e) {
+      Helper.showSnackBarMessage(
+          msg: "Error while updating teacher", isSuccess: false);
       return false;
     }
 

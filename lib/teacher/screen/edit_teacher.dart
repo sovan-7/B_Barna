@@ -6,6 +6,7 @@ import 'package:bbarna/core/widgets/sidebar.dart';
 import 'package:bbarna/core/widgets/save_button.dart';
 import 'package:bbarna/resources/app_colors.dart';
 import 'package:bbarna/resources/constant.dart';
+import 'package:bbarna/teacher/model/teacher_model.dart';
 import 'package:bbarna/teacher/viewModel/teacher_view_model.dart';
 import 'package:bbarna/utils/helper.dart';
 import 'package:file_picker/file_picker.dart';
@@ -13,27 +14,26 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 /// Exposes a test-only hook for setting the selected photo without driving
-/// a real (untestable in this environment) native file picker dialog. Public
-/// so widget tests can reach it via `tester.state<AddTeacherTestHooks>(...)`
-/// even though `_AddTeacherState` itself stays private. Must extend `State`
-/// (not just declare the method) to satisfy `WidgetTester.state<T>()`'s bound.
+/// a real (untestable in this environment) native file picker dialog — same
+/// rationale as [AddTeacherTestHooks] in add_teacher.dart.
 @visibleForTesting
-abstract class AddTeacherTestHooks extends State<AddTeacher> {
+abstract class EditTeacherTestHooks extends State<EditTeacher> {
   void setSelectedImageForTest(PlatformFile file);
 }
 
-class AddTeacher extends StatefulWidget {
-  const AddTeacher({super.key});
+class EditTeacher extends StatefulWidget {
+  final TeacherModel teacherData;
+  const EditTeacher({required this.teacherData, super.key});
 
   @override
-  State<AddTeacher> createState() => _AddTeacherState();
+  State<EditTeacher> createState() => _EditTeacherState();
 }
 
-class _AddTeacherState extends AddTeacherTestHooks {
+class _EditTeacherState extends EditTeacherTestHooks {
   final GlobalKey<ScaffoldState> key = GlobalKey();
 
-  final TextEditingController nameController = TextEditingController();
-  final TextEditingController usernameController = TextEditingController();
+  late final TextEditingController nameController;
+  late final TextEditingController usernameController;
   final TextEditingController passwordController = TextEditingController();
   bool isPasswordVisible = false;
   bool isSaving = false;
@@ -41,12 +41,21 @@ class _AddTeacherState extends AddTeacherTestHooks {
   PlatformFile? selectedImageFile;
   Uint8List? selectedImageBytes;
 
-  final Set<String> selectedModules = {};
-  // Least-privilege default — Admin must be picked deliberately.
-  String selectedRole = roleSubadmin;
+  late final Set<String> selectedModules;
+  late String selectedRole;
 
   static const int _maxImageBytes = 5 * 1024 * 1024;
   static const Set<String> _allowedImageExtensions = {'jpg', 'jpeg', 'png'};
+
+  @override
+  void initState() {
+    nameController = TextEditingController(text: widget.teacherData.name);
+    usernameController =
+        TextEditingController(text: widget.teacherData.username);
+    selectedModules = widget.teacherData.moduleAccess.toSet();
+    selectedRole = widget.teacherData.role;
+    super.initState();
+  }
 
   @override
   @visibleForTesting
@@ -75,7 +84,6 @@ class _AddTeacherState extends AddTeacherTestHooks {
 
   Future<void> _onSave() async {
     final String name = nameController.text.trim();
-    final String username = usernameController.text.trim();
     final String password = passwordController.text;
 
     if (name.isEmpty || name.length > 100) {
@@ -84,21 +92,8 @@ class _AddTeacherState extends AddTeacherTestHooks {
       return;
     }
 
-    // Letters, numbers, and underscores — a realistic reading of "alphanumeric
-    // username" (real handles commonly use underscores); still rejects
-    // spaces/punctuation/emoji, which is the PRD's actual intent.
-    final bool usernameValid =
-        RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(username) && username.length >= 4;
-    if (!usernameValid) {
-      Helper.showSnackBarMessage(
-          msg: "Username must be at least 4 letters, numbers, or underscores",
-          isSuccess: false);
-      return;
-    }
-
-    // Hard requirement is length only — letters+numbers is a recommendation,
-    // surfaced as guidance text below the field, not a rejection rule.
-    if (password.length < 8) {
+    // Optional here — non-empty means "change it", empty means "keep it".
+    if (password.isNotEmpty && password.length < 8) {
       Helper.showSnackBarMessage(
           msg: "Password must be at least 8 characters", isSuccess: false);
       return;
@@ -106,23 +101,18 @@ class _AddTeacherState extends AddTeacherTestHooks {
 
     final PlatformFile? imageFile = selectedImageFile;
     final Uint8List? imageBytes = selectedImageBytes;
-    if (imageFile == null || imageBytes == null) {
-      Helper.showSnackBarMessage(
-          msg: "Please choose a photo", isSuccess: false);
-      return;
-    }
-
-    final String? extension = _extensionOf(imageFile);
-    if (extension == null || !_allowedImageExtensions.contains(extension)) {
-      Helper.showSnackBarMessage(
-          msg: "Photo must be a JPG or PNG file", isSuccess: false);
-      return;
-    }
-
-    if (imageFile.size > _maxImageBytes) {
-      Helper.showSnackBarMessage(
-          msg: "Photo must be 5MB or smaller", isSuccess: false);
-      return;
+    if (imageFile != null && imageBytes != null) {
+      final String? extension = _extensionOf(imageFile);
+      if (extension == null || !_allowedImageExtensions.contains(extension)) {
+        Helper.showSnackBarMessage(
+            msg: "Photo must be a JPG or PNG file", isSuccess: false);
+        return;
+      }
+      if (imageFile.size > _maxImageBytes) {
+        Helper.showSnackBarMessage(
+            msg: "Photo must be 5MB or smaller", isSuccess: false);
+        return;
+      }
     }
 
     if (selectedModules.isEmpty) {
@@ -139,17 +129,19 @@ class _AddTeacherState extends AddTeacherTestHooks {
     setState(() => isSaving = true);
     final TeacherViewModel teacherViewModel =
         Provider.of<TeacherViewModel>(context, listen: false);
-    final bool success = await teacherViewModel.addTeacher(
+    final bool success = await teacherViewModel.updateTeacher(
+      original: widget.teacherData,
       name: name,
-      username: username,
-      password: password,
-      image: imageBytes,
+      newPassword: password.isEmpty ? null : password,
       moduleAccess: moduleAccess,
       role: selectedRole,
+      newImage: imageBytes,
     );
 
     if (!mounted) return;
     if (success) {
+      Helper.showSnackBarMessage(
+          msg: "Teacher updated successfully", isSuccess: true);
       Navigator.pop(context);
     } else {
       setState(() => isSaving = false);
@@ -186,14 +178,13 @@ class _AddTeacherState extends AddTeacherTestHooks {
                           image: MemoryImage(selectedImageBytes!),
                           fit: BoxFit.cover,
                         )
-                      : null,
+                      : DecorationImage(
+                          image: NetworkImage(widget.teacherData.imageUrl),
+                          fit: BoxFit.cover,
+                          onError: (exception, stackTrace) {},
+                        ),
                 ),
                 alignment: Alignment.center,
-                child: selectedImageBytes == null
-                    ? Icon(Icons.person,
-                        size: 48,
-                        color: AppColorsInApp.colorGrey.withValues(alpha: .6))
-                    : null,
               ),
               Positioned(
                 bottom: -2,
@@ -220,7 +211,7 @@ class _AddTeacherState extends AddTeacherTestHooks {
           const SizedBox(height: 10),
           Text(
             selectedImageBytes == null
-                ? "Upload a photo"
+                ? "Tap the camera to change the photo"
                 : "Photo selected — tap to change",
             style: TextStyle(
                 fontSize: 12,
@@ -372,7 +363,7 @@ class _AddTeacherState extends AddTeacherTestHooks {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Text(
-                                    "Add New Teacher",
+                                    "Edit Teacher",
                                     style: TextStyle(
                                         fontSize: 20,
                                         fontWeight: FontWeight.bold,
@@ -380,7 +371,7 @@ class _AddTeacherState extends AddTeacherTestHooks {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    "Create a login and grant module access for a new teacher.",
+                                    "Update the login and module access for this teacher.",
                                     style: TextStyle(
                                         fontSize: 12.5,
                                         color: AppColorsInApp.colorGrey
@@ -403,6 +394,17 @@ class _AddTeacherState extends AddTeacherTestHooks {
                                     labelText: "username",
                                     title: "Username",
                                     textEditingController: usernameController,
+                                    enabled: false,
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 6.0),
+                                    child: Text(
+                                      "Username can't be changed once created.",
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppColorsInApp.colorGrey
+                                              .withValues(alpha: .9)),
+                                    ),
                                   ),
                                   const SizedBox(height: 16),
                                   CustomTextField(
@@ -420,7 +422,7 @@ class _AddTeacherState extends AddTeacherTestHooks {
                                   Padding(
                                     padding: const EdgeInsets.only(top: 6.0),
                                     child: Text(
-                                      "Min 8 characters. Using both letters and numbers is recommended.",
+                                      "Leave blank to keep the current password. Min 8 characters otherwise.",
                                       style: TextStyle(
                                           fontSize: 11,
                                           color: AppColorsInApp.colorGrey

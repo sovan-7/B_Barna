@@ -112,6 +112,7 @@ void main() {
         password: 'hash1',
         timeStamp: 1,
         moduleAccess: const ['COURSES'],
+        role: 'admin',
       );
 
       await repo.addTeacher(model);
@@ -153,6 +154,7 @@ void main() {
         password: 'hash1',
         timeStamp: 1,
         moduleAccess: const ['COURSES'],
+        role: 'admin',
       );
 
       await expectLater(
@@ -163,6 +165,30 @@ void main() {
           any<DocumentReference<Map<String, dynamic>>>(),
           any<Map<String, dynamic>>(),
           any()));
+    });
+  });
+
+  group('updateTeacher', () {
+    test('updates the doc at docId with the model\'s full field map',
+        () async {
+      final docRef = MockDocumentReference();
+      when(() => collection.doc('jane_doe')).thenReturn(docRef);
+      when(() => docRef.update(any())).thenAnswer((_) async {});
+
+      final model = TeacherModel(
+        docId: 'jane_doe',
+        name: 'Jane Doe Updated',
+        imageUrl: 'https://example.com/jane.jpg',
+        username: 'jane_doe',
+        password: 'hash1',
+        timeStamp: 1,
+        moduleAccess: const ['COURSES', 'SUBJECT'],
+        role: 'admin',
+      );
+
+      await repo.updateTeacher(model);
+
+      verify(() => docRef.update(model.toMap())).called(1);
     });
   });
 

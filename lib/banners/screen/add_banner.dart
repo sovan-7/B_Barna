@@ -4,7 +4,7 @@ import 'package:bbarna/banners/model/banners_model.dart';
 import 'package:bbarna/banners/viewModel/banners_viewmodel.dart';
 import 'package:bbarna/core/widgets/app_header.dart';
 import 'package:bbarna/core/widgets/choose_image.dart';
-import 'package:bbarna/core/widgets/extra_sidebar.dart';
+import 'package:bbarna/core/widgets/sidebar.dart';
 import 'package:bbarna/core/widgets/loader_dialog.dart';
 import 'package:bbarna/core/widgets/save_button.dart';
 import 'package:bbarna/utils/helper.dart';

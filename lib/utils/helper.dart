@@ -33,4 +33,25 @@ class Helper {
       size: 80,
     ));
   }
+
+  /// Positions within [moduleList] the logged-in teacher may see, read from
+  /// the module list stashed in SharedPreferences at login. Falls back to
+  /// every index (unrestricted) when nothing was stored — covers legacy
+  /// sessions/docs predating module access, and any context where
+  /// [sharedPreferences] hasn't been initialized yet (e.g. widget tests).
+  static List<int> allowedModuleIndices() {
+    List<String>? access;
+    try {
+      access = sharedPreferences.getStringList(moduleAccessPrefsKey);
+    } catch (_) {
+      access = null;
+    }
+    if (access == null || access.isEmpty) {
+      return List<int>.generate(moduleList.length, (i) => i);
+    }
+    return [
+      for (int i = 0; i < moduleList.length; i++)
+        if (access.contains(moduleList[i])) i,
+    ];
+  }
 }

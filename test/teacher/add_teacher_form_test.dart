@@ -59,6 +59,12 @@ Future<void> checkModule(WidgetTester tester, String module) async {
   await tester.pump();
 }
 
+Future<void> selectRole(WidgetTester tester, String role) async {
+  await tester.ensureVisible(find.byKey(Key('role_option_$role')));
+  await tester.tap(find.byKey(Key('role_option_$role')));
+  await tester.pump();
+}
+
 void main() {
   setUpAll(() {
     registerFallbackValue(TeacherModelFake());
@@ -247,5 +253,41 @@ void main() {
         verify(() => repo.addTeacher(captureAny())).captured.single
             as TeacherModel;
     expect(captured.moduleAccess, ['COURSES', 'TOPIC']);
+  });
+
+  testWidgets('defaults to the Subadmin role when none is explicitly chosen',
+      (tester) async {
+    await pumpAddTeacher(tester, viewModel);
+    selectFakeImage(tester);
+    await tester.enterText(find.byKey(const Key('teacher_name_field')), 'Jane Doe');
+    await tester.enterText(find.byKey(const Key('teacher_username_field')), 'jane_doe');
+    await tester.enterText(find.byKey(const Key('teacher_password_field')), 'password123');
+    await checkModule(tester, 'COURSES');
+    await tester.ensureVisible(find.byKey(const Key('teacher_save_button')));
+    await tester.tap(find.byKey(const Key('teacher_save_button')));
+    await tester.pumpAndSettle();
+
+    final captured =
+        verify(() => repo.addTeacher(captureAny())).captured.single
+            as TeacherModel;
+    expect(captured.role, roleSubadmin);
+  });
+
+  testWidgets('saves Admin role when explicitly selected', (tester) async {
+    await pumpAddTeacher(tester, viewModel);
+    selectFakeImage(tester);
+    await tester.enterText(find.byKey(const Key('teacher_name_field')), 'Jane Doe');
+    await tester.enterText(find.byKey(const Key('teacher_username_field')), 'jane_doe');
+    await tester.enterText(find.byKey(const Key('teacher_password_field')), 'password123');
+    await selectRole(tester, roleAdmin);
+    await checkModule(tester, 'COURSES');
+    await tester.ensureVisible(find.byKey(const Key('teacher_save_button')));
+    await tester.tap(find.byKey(const Key('teacher_save_button')));
+    await tester.pumpAndSettle();
+
+    final captured =
+        verify(() => repo.addTeacher(captureAny())).captured.single
+            as TeacherModel;
+    expect(captured.role, roleAdmin);
   });
 }

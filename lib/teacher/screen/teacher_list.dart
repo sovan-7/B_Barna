@@ -4,7 +4,6 @@ import 'package:bbarna/resources/app_colors.dart';
 import 'package:bbarna/teacher/screen/add_teacher.dart';
 import 'package:bbarna/teacher/viewModel/teacher_view_model.dart';
 import 'package:bbarna/teacher/widgets/teacher_card.dart';
-import 'package:bbarna/utils/size_config.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -45,14 +44,27 @@ class _TeacherListState extends State<TeacherList> {
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  "TEACHER LIST",
-                  style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.normal,
-                      letterSpacing: 1.0,
-                      color: AppColorsInApp.colorBlack1),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "TEACHER LIST",
+                      style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.normal,
+                          letterSpacing: 1.0,
+                          color: AppColorsInApp.colorBlack1),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      "${teacherVM.teacherList.length} teacher${teacherVM.teacherList.length == 1 ? '' : 's'} · role and module access at a glance",
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: AppColorsInApp.colorGrey.withValues(alpha: .9)),
+                    ),
+                  ],
                 ),
                 AddWidget(
                   addCall: () {
@@ -117,15 +129,9 @@ class _TeacherListState extends State<TeacherList> {
                     : ListView.builder(
                         itemCount: teacherVM.teacherList.length,
                         itemBuilder: (context, index) {
-                          return SizeConfig.screenWidth! < 900
-                              ? FittedBox(
-                                  child: TeacherCard(
-                                    teacherData: teacherVM.teacherList[index],
-                                  ),
-                                )
-                              : TeacherCard(
-                                  teacherData: teacherVM.teacherList[index],
-                                );
+                          return TeacherCard(
+                            teacherData: teacherVM.teacherList[index],
+                          );
                         }),
               ),
             )

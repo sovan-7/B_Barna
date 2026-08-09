@@ -17,6 +17,7 @@ void main() {
         password: 'hashed-password-value',
         timeStamp: 1700000000000,
         moduleAccess: const ['COURSES', 'SUBJECT'],
+        role: 'admin',
       );
 
       expect(model.toMap(), {
@@ -26,6 +27,7 @@ void main() {
         'password': 'hashed-password-value',
         'timeStamp': 1700000000000,
         'module_access': ['COURSES', 'SUBJECT'],
+        'role': 'admin',
       });
     });
 
@@ -39,6 +41,7 @@ void main() {
         'password': 'hashed-password-value',
         'timeStamp': 1700000000000,
         'module_access': ['COURSES', 'SUBJECT'],
+        'role': 'admin',
       });
 
       final model = TeacherModel.fromDocumentSnapshot(snapshot);
@@ -50,6 +53,7 @@ void main() {
       expect(model.password, 'hashed-password-value');
       expect(model.timeStamp, 1700000000000);
       expect(model.moduleAccess, ['COURSES', 'SUBJECT']);
+      expect(model.role, 'admin');
     });
 
     test(
@@ -69,6 +73,7 @@ void main() {
       expect(model.password, 'NA'); // stringDefault
       expect(model.timeStamp, -1); // intDefault
       expect(model.moduleAccess, isEmpty);
+      expect(model.role, 'subadmin'); // falls back to roleSubadmin, not stringDefault
     });
   });
 }

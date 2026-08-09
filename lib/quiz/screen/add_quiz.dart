@@ -5,7 +5,7 @@ import 'package:bbarna/resources/constant.dart';
 import 'package:bbarna/utils/helper.dart';
 import 'package:flutter/material.dart';
 import 'package:bbarna/core/widgets/app_header.dart';
-import 'package:bbarna/core/widgets/extra_sidebar.dart';
+import 'package:bbarna/core/widgets/sidebar.dart';
 import 'package:bbarna/core/widgets/save_button.dart';
 import 'package:bbarna/resources/app_colors.dart';
 import 'package:bbarna/core/widgets/custom_text_field.dart';
