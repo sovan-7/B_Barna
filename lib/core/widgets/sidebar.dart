@@ -3,7 +3,6 @@
 import 'package:bbarna/banners/screen/banner_list.dart';
 import 'package:flutter/material.dart';
 import 'package:bbarna/core/widgets/app_header.dart';
-import 'package:bbarna/core/widgets/extra_sidebar.dart';
 import 'package:bbarna/core/widgets/sidebar_widget.dart';
 import 'package:bbarna/resources/app_colors.dart';
 import 'package:bbarna/resources/constant.dart';
@@ -18,6 +17,7 @@ import 'package:bbarna/subject/screen/subject_list.dart';
 import 'package:bbarna/teacher/screen/teacher_list.dart';
 import 'package:bbarna/topic/screen/topic_list.dart';
 import 'package:bbarna/units/screen/unit_list.dart';
+import 'package:bbarna/utils/helper.dart';
 
 class Sidebar extends StatefulWidget {
   final int sidebarIndex;
@@ -47,12 +47,21 @@ class _SidebarState extends State<Sidebar> {
     const TeacherList(),
   ];
 
-  List<String> drawerItems = moduleList;
+  // Absolute positions within [moduleList]/[screenList] the logged-in
+  // teacher may see — [drawerItems]/[iconList] below are the same list
+  // filtered down to those positions, but `screenList[selectedIndex]` stays
+  // indexed by the *absolute* position so hardcoded `sidebarIndex`/
+  // `ExtraSideBar(sidebarIndex: N)` call sites elsewhere keep working.
+  late List<int> allowedIndices;
+  late List<String> drawerItems;
+  late List<IconData> iconList;
 
-  List<IconData> iconList = moduleIconList;
   @override
   void initState() {
     selectedIndex = widget.sidebarIndex;
+    allowedIndices = Helper.allowedModuleIndices();
+    drawerItems = allowedIndices.map((i) => moduleList[i]).toList();
+    iconList = allowedIndices.map((i) => moduleIconList[i]).toList();
     super.initState();
   }
 
@@ -99,17 +108,19 @@ class _SidebarState extends State<Sidebar> {
                                   child: ListView.builder(
                                       itemCount: drawerItems.length,
                                       itemBuilder: (context, index) {
+                                        final int moduleIndex =
+                                            allowedIndices[index];
                                         return InkWell(
                                             onTap: () {
                                               setState(() {
-                                                selectedIndex = index;
+                                                selectedIndex = moduleIndex;
                                               });
                                             },
                                             child: SidebarWidget(
                                               iconData: iconList[index],
                                               itemText: drawerItems[index],
                                               isSelected:
-                                                  index == selectedIndex,
+                                                  moduleIndex == selectedIndex,
                                             ));
                                       }),
                                 ),
@@ -132,6 +143,87 @@ class _SidebarState extends State<Sidebar> {
                   ),
                 )
               : null),
+    );
+  }
+}
+
+/// Bare logo+nav-list, embedded (not a full page like [Sidebar]) — used as
+/// the static side panel and narrow-width [Drawer] content across every
+/// add/edit screen, and by [Sidebar]'s own narrow-width drawer above.
+class ExtraSideBar extends StatefulWidget {
+  final int sidebarIndex;
+  final bool isFromLogin;
+  const ExtraSideBar(
+      {required this.sidebarIndex, this.isFromLogin = false, super.key});
+
+  @override
+  State<ExtraSideBar> createState() => _ExtraSideBarState();
+}
+
+class _ExtraSideBarState extends State<ExtraSideBar> {
+  int selectedIndex = 0;
+
+  // Kept index-aligned with Sidebar's own filtering — see the comment there.
+  late List<int> allowedIndices;
+  late List<String> drawerItems;
+  late List<IconData> iconList;
+
+  @override
+  void initState() {
+    selectedIndex = widget.sidebarIndex;
+    allowedIndices = Helper.allowedModuleIndices();
+    drawerItems = allowedIndices.map((i) => moduleList[i]).toList();
+    iconList = allowedIndices.map((i) => moduleIconList[i]).toList();
+    super.initState();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        SizedBox(
+          height: 200,
+          // color: Colors.pink,
+          child: Image.asset(
+            "assets/images/logo.png",
+            height: 150,
+            width: 150,
+          ),
+        ),
+        Expanded(
+          child: Container(
+            color: AppColorsInApp.colorGrey.withValues(alpha: .4),
+            child: ListView.builder(
+                itemCount: drawerItems.length,
+                itemBuilder: (context, index) {
+                  final int moduleIndex = allowedIndices[index];
+                  return InkWell(
+                    onTap: () {
+                      if (widget.isFromLogin) {
+                        Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) =>
+                                    Sidebar(sidebarIndex: moduleIndex)));
+                      } else {
+                        Navigator.pop(context);
+                        Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) =>
+                                    Sidebar(sidebarIndex: moduleIndex)));
+                      }
+                    },
+                    child: SidebarWidget(
+                      iconData: iconList[index],
+                      itemText: drawerItems[index],
+                      isSelected: moduleIndex == selectedIndex,
+                    ),
+                  );
+                }),
+          ),
+        )
+      ],
     );
   }
 }

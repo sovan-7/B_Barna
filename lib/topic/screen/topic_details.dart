@@ -6,7 +6,7 @@ import 'package:bbarna/utils/helper.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:bbarna/core/widgets/app_header.dart';
-import 'package:bbarna/core/widgets/extra_sidebar.dart';
+import 'package:bbarna/core/widgets/sidebar.dart';
 import 'package:bbarna/resources/app_colors.dart';
 import 'package:bbarna/topic/widgets/topic_table.dart';
 import 'package:provider/provider.dart';

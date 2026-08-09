@@ -52,6 +52,15 @@ class TeacherRepo {
     });
   }
 
+  /// Username (and therefore the doc ID) is immutable once created — this
+  /// only ever updates the doc at [teacherModel.docId], never moves it.
+  Future<void> updateTeacher(TeacherModel teacherModel) async {
+    await _firestore
+        .collection(teacher)
+        .doc(teacherModel.docId)
+        .update(teacherModel.toMap());
+  }
+
   Future<List<TeacherModel>> getTeacherList() async {
     final QuerySnapshot<Map<String, dynamic>> snapshot =
         await _firestore.collection(teacher).get();

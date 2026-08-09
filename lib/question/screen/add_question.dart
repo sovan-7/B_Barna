@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:html_editor_enhanced/html_editor.dart';
 import 'package:bbarna/core/widgets/app_header.dart';
 import 'package:bbarna/core/widgets/custom_text_field.dart';
-import 'package:bbarna/core/widgets/extra_sidebar.dart';
+import 'package:bbarna/core/widgets/sidebar.dart';
 import 'package:bbarna/question/widgets/question_html_editor.dart';
 import 'package:bbarna/resources/app_colors.dart';
 import 'package:bbarna/utils/helper.dart';

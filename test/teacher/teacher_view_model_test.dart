@@ -46,6 +46,7 @@ void main() {
         password: rawPassword,
         image: Uint8List.fromList([1, 2, 3]),
         moduleAccess: const ['COURSES'],
+        role: roleSubadmin,
       );
 
       final captured =
@@ -69,6 +70,7 @@ void main() {
         password: 'password123',
         image: Uint8List.fromList([1, 2, 3]),
         moduleAccess: const ['COURSES'],
+        role: roleSubadmin,
       );
 
       final captured =
@@ -91,6 +93,7 @@ void main() {
         password: 'password123',
         image: Uint8List.fromList([1, 2, 3]),
         moduleAccess: const ['COURSES'],
+        role: roleSubadmin,
       );
 
       verifyInOrder([
@@ -112,6 +115,7 @@ void main() {
         password: 'password123',
         image: Uint8List.fromList([1, 2, 3]),
         moduleAccess: const ['COURSES'],
+        role: roleSubadmin,
       );
 
       expect(result, isTrue);
@@ -134,12 +138,34 @@ void main() {
         password: 'password123',
         image: Uint8List.fromList([1, 2, 3]),
         moduleAccess: const ['COURSES', 'SUBJECT'],
+        role: roleSubadmin,
       );
 
       final captured =
           verify(() => repo.addTeacher(captureAny())).captured.single
               as TeacherModel;
       expect(captured.moduleAccess, ['COURSES', 'SUBJECT']);
+    });
+
+    test('passes the selected role through to the persisted model', () async {
+      when(() => repo.generateStorageKey()).thenReturn('key-1');
+      when(() => repo.uploadTeacherImage(any(), any()))
+          .thenAnswer((_) async => 'https://example.com/photo.jpg');
+      when(() => repo.addTeacher(any())).thenAnswer((_) async {});
+
+      await viewModel.addTeacher(
+        name: 'Jane Doe',
+        username: 'jane_doe',
+        password: 'password123',
+        image: Uint8List.fromList([1, 2, 3]),
+        moduleAccess: const ['COURSES'],
+        role: roleAdmin,
+      );
+
+      final captured =
+          verify(() => repo.addTeacher(captureAny())).captured.single
+              as TeacherModel;
+      expect(captured.role, roleAdmin);
     });
   });
 
@@ -164,6 +190,7 @@ void main() {
         password: 'password123',
         image: Uint8List.fromList([1, 2, 3]),
         moduleAccess: const ['COURSES'],
+        role: roleSubadmin,
       );
 
       expect(result, isFalse);
@@ -189,6 +216,221 @@ void main() {
         password: 'password123',
         image: Uint8List.fromList([1, 2, 3]),
         moduleAccess: const ['COURSES'],
+        role: roleSubadmin,
+      );
+
+      expect(result, isFalse);
+    });
+  });
+
+  group('updateTeacher (success path, plain unit tests)', () {
+    final original = TeacherModel(
+      docId: 'jane_doe',
+      name: 'Jane Doe',
+      imageUrl: 'https://example.com/original.jpg',
+      username: 'jane_doe',
+      password: 'original-hash',
+      timeStamp: 1700000000000,
+      moduleAccess: const ['COURSES'],
+      role: roleSubadmin,
+    );
+
+    test('keeps the original password hash when newPassword is omitted',
+        () async {
+      when(() => repo.updateTeacher(any())).thenAnswer((_) async {});
+
+      await viewModel.updateTeacher(
+        original: original,
+        name: 'Jane Doe',
+        moduleAccess: const ['COURSES'],
+        role: roleSubadmin,
+      );
+
+      final captured =
+          verify(() => repo.updateTeacher(captureAny())).captured.single
+              as TeacherModel;
+      expect(captured.password, 'original-hash');
+    });
+
+    test('keeps the original password hash when newPassword is empty',
+        () async {
+      when(() => repo.updateTeacher(any())).thenAnswer((_) async {});
+
+      await viewModel.updateTeacher(
+        original: original,
+        name: 'Jane Doe',
+        newPassword: '',
+        moduleAccess: const ['COURSES'],
+        role: roleSubadmin,
+      );
+
+      final captured =
+          verify(() => repo.updateTeacher(captureAny())).captured.single
+              as TeacherModel;
+      expect(captured.password, 'original-hash');
+    });
+
+    test('hashes newPassword with sha256 when provided', () async {
+      when(() => repo.updateTeacher(any())).thenAnswer((_) async {});
+
+      const rawPassword = 'new-plaintext-password';
+      await viewModel.updateTeacher(
+        original: original,
+        name: 'Jane Doe',
+        newPassword: rawPassword,
+        moduleAccess: const ['COURSES'],
+        role: roleSubadmin,
+      );
+
+      final captured =
+          verify(() => repo.updateTeacher(captureAny())).captured.single
+              as TeacherModel;
+      expect(captured.password,
+          sha256.convert(utf8.encode(rawPassword)).toString());
+    });
+
+    test('keeps the original photo when newImage is omitted, never uploads',
+        () async {
+      when(() => repo.updateTeacher(any())).thenAnswer((_) async {});
+
+      await viewModel.updateTeacher(
+        original: original,
+        name: 'Jane Doe',
+        moduleAccess: const ['COURSES'],
+        role: roleSubadmin,
+      );
+
+      verifyNever(() => repo.uploadTeacherImage(any(), any()));
+      final captured =
+          verify(() => repo.updateTeacher(captureAny())).captured.single
+              as TeacherModel;
+      expect(captured.imageUrl, 'https://example.com/original.jpg');
+    });
+
+    test('uploads and uses the new photo URL when newImage is provided',
+        () async {
+      when(() => repo.generateStorageKey()).thenReturn('key-2');
+      when(() => repo.uploadTeacherImage(any(), any()))
+          .thenAnswer((_) async => 'https://example.com/new.jpg');
+      when(() => repo.updateTeacher(any())).thenAnswer((_) async {});
+
+      await viewModel.updateTeacher(
+        original: original,
+        name: 'Jane Doe',
+        moduleAccess: const ['COURSES'],
+        role: roleSubadmin,
+        newImage: Uint8List.fromList([1, 2, 3]),
+      );
+
+      final captured =
+          verify(() => repo.updateTeacher(captureAny())).captured.single
+              as TeacherModel;
+      expect(captured.imageUrl, 'https://example.com/new.jpg');
+    });
+
+    test('preserves docId, username and timeStamp from the original model',
+        () async {
+      when(() => repo.updateTeacher(any())).thenAnswer((_) async {});
+
+      await viewModel.updateTeacher(
+        original: original,
+        name: 'Jane Doe Renamed',
+        moduleAccess: const ['SUBJECT'],
+        role: roleAdmin,
+      );
+
+      final captured =
+          verify(() => repo.updateTeacher(captureAny())).captured.single
+              as TeacherModel;
+      expect(captured.docId, original.docId);
+      expect(captured.username, original.username);
+      expect(captured.timeStamp, original.timeStamp);
+    });
+
+    test('passes through the edited name, moduleAccess and role', () async {
+      when(() => repo.updateTeacher(any())).thenAnswer((_) async {});
+
+      await viewModel.updateTeacher(
+        original: original,
+        name: 'Jane Doe Renamed',
+        moduleAccess: const ['SUBJECT', 'TOPIC'],
+        role: roleAdmin,
+      );
+
+      final captured =
+          verify(() => repo.updateTeacher(captureAny())).captured.single
+              as TeacherModel;
+      expect(captured.name, 'Jane Doe Renamed');
+      expect(captured.moduleAccess, ['SUBJECT', 'TOPIC']);
+      expect(captured.role, roleAdmin);
+    });
+
+    test('returns true on success', () async {
+      when(() => repo.updateTeacher(any())).thenAnswer((_) async {});
+
+      final result = await viewModel.updateTeacher(
+        original: original,
+        name: 'Jane Doe',
+        moduleAccess: const ['COURSES'],
+        role: roleSubadmin,
+      );
+
+      expect(result, isTrue);
+    });
+  });
+
+  // Failure paths call Helper.showSnackBarMessage, which needs a real
+  // navigatorKey.currentContext — same rationale as addTeacher's above.
+  group('updateTeacher (failure paths, need a live navigator context)', () {
+    final original = TeacherModel(
+      docId: 'jane_doe',
+      name: 'Jane Doe',
+      imageUrl: 'https://example.com/original.jpg',
+      username: 'jane_doe',
+      password: 'original-hash',
+      timeStamp: 1700000000000,
+      moduleAccess: const ['COURSES'],
+      role: roleSubadmin,
+    );
+
+    testWidgets(
+        'never calls repo.updateTeacher if the new image upload fails',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        navigatorKey: navigatorKey,
+        home: const Scaffold(body: SizedBox()),
+      ));
+
+      when(() => repo.generateStorageKey()).thenReturn('key-2');
+      when(() => repo.uploadTeacherImage(any(), any()))
+          .thenThrow(Exception('storage failure'));
+
+      final result = await viewModel.updateTeacher(
+        original: original,
+        name: 'Jane Doe',
+        moduleAccess: const ['COURSES'],
+        role: roleSubadmin,
+        newImage: Uint8List.fromList([1, 2, 3]),
+      );
+
+      expect(result, isFalse);
+      verifyNever(() => repo.updateTeacher(any()));
+    });
+
+    testWidgets('returns false when the repo write fails', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        navigatorKey: navigatorKey,
+        home: const Scaffold(body: SizedBox()),
+      ));
+
+      when(() => repo.updateTeacher(any()))
+          .thenThrow(Exception('firestore failure'));
+
+      final result = await viewModel.updateTeacher(
+        original: original,
+        name: 'Jane Doe',
+        moduleAccess: const ['COURSES'],
+        role: roleSubadmin,
       );
 
       expect(result, isFalse);
@@ -206,6 +448,7 @@ void main() {
           password: 'x',
           timeStamp: 1,
           moduleAccess: const ['COURSES'],
+          role: roleSubadmin,
         ),
         TeacherModel(
           docId: 'john_smith',
@@ -215,6 +458,7 @@ void main() {
           password: 'x',
           timeStamp: 2,
           moduleAccess: const ['SUBJECT'],
+          role: roleAdmin,
         ),
       ];
       viewModel.copyTeacherList = viewModel.teacherList;

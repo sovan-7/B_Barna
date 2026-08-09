@@ -48,6 +48,18 @@ const List<String> moduleList = [
   "TEACHERS",
 ];
 
+const String roleAdmin = "admin";
+const String roleSubadmin = "subadmin";
+
+/// SharedPreferences key the logged-in teacher's module_access list is
+/// stored under at login — [Sidebar] and [ExtraSideBar] read it back to
+/// restrict which modules they render.
+const String moduleAccessPrefsKey = "module_access";
+
+/// [AddTeacher] generates its role selector from this list — keep it as the
+/// single source of truth for valid teacher roles.
+const List<String> roleList = [roleAdmin, roleSubadmin];
+
 const List<IconData> moduleIconList = [
   Icons.image,
   Icons.subject_outlined,
