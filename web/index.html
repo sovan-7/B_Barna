@@ -69,12 +69,22 @@
     // whenever the cursor lands directly on the iframe, which is most of
     // the time since the editor is the largest thing on screen.)
     function interceptDrop(doc) {
+      // TEMP DIAGNOSTIC: bubble-phase sentinel — if this ever logs, the
+      // capture-phase listener below did NOT stop Summernote's own
+      // handler from also running (i.e. stopPropagation isn't winning).
       doc.addEventListener('drop', function (event) {
+        console.log('[Q1 DnD] bubble-phase drop reached target:', event.target && event.target.outerHTML && event.target.outerHTML.slice(0, 80));
+      }, false);
+
+      doc.addEventListener('drop', function (event) {
+        console.log('[Q1 DnD] capture-phase drop fired, types:', event.dataTransfer && event.dataTransfer.types);
         if (!event.dataTransfer) return;
         var text = event.dataTransfer.getData('text/plain');
+        console.log('[Q1 DnD] capture-phase text/plain payload:', JSON.stringify(text));
         if (!text) return;
         event.preventDefault();
         event.stopPropagation();
+        console.log('[Q1 DnD] capture-phase calling execCommand(insertText)');
         doc.execCommand('insertText', false, text);
       }, true);
     }
