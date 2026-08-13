@@ -46,6 +46,7 @@ const List<String> moduleList = [
   "QUESTIONS",
   "STUDENTS",
   "TEACHERS",
+  "QUESTION1",
 ];
 
 const String roleAdmin = "admin";
@@ -73,5 +74,6 @@ const List<IconData> moduleIconList = [
   Icons.question_mark_sharp,
   Icons.people,
   Icons.people_alt_outlined,
+  Icons.library_books,
 ];
 

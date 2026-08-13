@@ -36,9 +36,11 @@ void main() {
     final widgets =
         tester.widgetList<SidebarWidget>(find.byType(SidebarWidget)).toList();
 
-    expect(widgets, hasLength(12),
-        reason: '11 existing sections + the new Teachers section');
+    expect(widgets, hasLength(13),
+        reason: '11 existing sections + Teachers + the new Question1 section');
     expect(widgets[11].itemText, 'TEACHERS');
     expect(widgets[11].iconData, Icons.people_alt_outlined);
+    expect(widgets[12].itemText, 'QUESTION1');
+    expect(widgets[12].iconData, Icons.library_books);
   });
 }
