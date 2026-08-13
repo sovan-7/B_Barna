@@ -9,16 +9,15 @@ import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 /// OS-level plain text (e.g. text highlighted in a browser tab or another
 /// app) directly onto the field to insert it.
 ///
-/// The [DropRegion] wraps the whole field, editor included. On web the
-/// editor body is a same-origin `<iframe>`, which would normally swallow a
-/// drop landing on its own pixels before Flutter ever sees it — and the
-/// bundled Summernote JS has its own drop handler that double-pastes text
-/// (it walks every MIME type in the drag payload, and a text drag usually
-/// carries both text/plain and text/html). `web/index.html` disables
-/// pointer-events on iframes for the duration of a drag so the event falls
-/// through to this [DropRegion] instead, which is what makes a single,
-/// clean [HtmlEditorController.insertText] call possible everywhere in the
-/// field, not just on a strip beside the editor.
+/// The [DropRegion] wraps the whole field, editor included, and handles
+/// drops landing on the field's own (non-editor) pixels — e.g. the border
+/// padding around the editor. On web the editor body is a same-origin
+/// `<iframe>`, which is a separate browsing context: a drop landing
+/// directly on it never reaches this [DropRegion] at all, and is instead
+/// handled by `web/index.html`'s script, which reaches into each editor
+/// iframe's own document (same-origin allows this) and intercepts the drop
+/// before the bundled Summernote JS's own (buggy — it double-pastes across
+/// MIME types) drop handler can run.
 class Question1HtmlEditor extends StatefulWidget {
   const Question1HtmlEditor({
     required this.controller,
