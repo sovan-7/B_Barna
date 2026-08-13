@@ -50,6 +50,31 @@
   <script type="text/javascript">
     window.flutterWebRenderer = "html";
 </script>
+  <script>
+    // html_editor_enhanced renders each rich-text field as a same-origin
+    // <iframe>. Iframes are a separate browsing context, so a native OS
+    // drag-and-drop that lands on one is delivered straight to the
+    // iframe's own DOM — Flutter's DropRegion (in the host page) never
+    // sees it, and the bundled Summernote JS has its own drop handler
+    // that double-pastes text (it loops every MIME type in the drag
+    // payload, and a text drag usually carries both text/plain and
+    // text/html). Disabling pointer-events on all iframes for the
+    // duration of a drag makes the browser fall through to whatever is
+    // behind them in the host page instead, so Question1's DropRegion
+    // gets the drop and inserts it exactly once.
+    document.addEventListener('dragenter', function () {
+      document.querySelectorAll('iframe').forEach(function (el) {
+        el.style.pointerEvents = 'none';
+      });
+    });
+    function restoreIframePointerEvents() {
+      document.querySelectorAll('iframe').forEach(function (el) {
+        el.style.pointerEvents = '';
+      });
+    }
+    document.addEventListener('drop', restoreIframePointerEvents);
+    document.addEventListener('dragend', restoreIframePointerEvents);
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

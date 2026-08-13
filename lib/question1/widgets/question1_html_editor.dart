@@ -9,14 +9,16 @@ import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 /// OS-level plain text (e.g. text highlighted in a browser tab or another
 /// app) directly onto the field to insert it.
 ///
-/// The [DropRegion] wraps ONLY the "Drag text here" label strip, not the
-/// `HtmlEditor` itself. The editor body is a contenteditable element (inside
-/// a same-origin `<iframe>` on web), and browsers already handle text drops
-/// onto contenteditable natively — wrapping the editor too made both the
-/// native handler AND this widget's [DropRegion] insert the text, doubling
-/// it. Keeping the drop target off the editor avoids that double-insert;
-/// dropping directly onto the editor body still works via the browser's own
-/// native contenteditable handling.
+/// The [DropRegion] wraps the whole field, editor included. On web the
+/// editor body is a same-origin `<iframe>`, which would normally swallow a
+/// drop landing on its own pixels before Flutter ever sees it — and the
+/// bundled Summernote JS has its own drop handler that double-pastes text
+/// (it walks every MIME type in the drag payload, and a text drag usually
+/// carries both text/plain and text/html). `web/index.html` disables
+/// pointer-events on iframes for the duration of a drag so the event falls
+/// through to this [DropRegion] instead, which is what makes a single,
+/// clean [HtmlEditorController.insertText] call possible everywhere in the
+/// field, not just on a strip beside the editor.
 class Question1HtmlEditor extends StatefulWidget {
   const Question1HtmlEditor({
     required this.controller,
@@ -81,28 +83,28 @@ class _Question1HtmlEditorState extends State<Question1HtmlEditor> {
                   letterSpacing: 0.5,
                   color: AppColorsInApp.colorGrey),
             ),
-          Container(
-            margin: const EdgeInsets.only(top: 5),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              border: Border.all(
-                width: _isDragOver ? 2 : 1,
-                color: _isDragOver
-                    ? AppColorsInApp.colorSecondary!
-                    : AppColorsInApp.colorBlack1.withValues(alpha: .2),
+          DropRegion(
+            formats: const [Formats.plainText],
+            hitTestBehavior: HitTestBehavior.opaque,
+            onDropOver: _handleDropOver,
+            onDropLeave: _handleDropLeave,
+            onPerformDrop: _handlePerformDrop,
+            child: Container(
+              margin: const EdgeInsets.only(top: 5),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  width: _isDragOver ? 2 : 1,
+                  color: _isDragOver
+                      ? AppColorsInApp.colorSecondary!
+                      : AppColorsInApp.colorBlack1.withValues(alpha: .2),
+                ),
+                borderRadius: BorderRadius.circular(5),
               ),
-              borderRadius: BorderRadius.circular(5),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                DropRegion(
-                  formats: const [Formats.plainText],
-                  hitTestBehavior: HitTestBehavior.opaque,
-                  onDropOver: _handleDropOver,
-                  onDropLeave: _handleDropLeave,
-                  onPerformDrop: _handlePerformDrop,
-                  child: Container(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
                     width: double.infinity,
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -128,44 +130,44 @@ class _Question1HtmlEditorState extends State<Question1HtmlEditor> {
                       ],
                     ),
                   ),
-                ),
-                HtmlEditor(
-                  controller: widget.controller,
-                  callbacks: Callbacks(
-                    onInit: widget.onEditorInit,
-                    onChangeContent: widget.onContentChanged,
+                  HtmlEditor(
+                    controller: widget.controller,
+                    callbacks: Callbacks(
+                      onInit: widget.onEditorInit,
+                      onChangeContent: widget.onContentChanged,
+                    ),
+                    htmlToolbarOptions: const HtmlToolbarOptions(
+                      dropdownMenuMaxHeight: 200,
+                      dropdownMenuDirection: DropdownMenuDirection.down,
+                      dropdownItemHeight: 60,
+                      toolbarType: ToolbarType.nativeScrollable,
+                      textStyle: TextStyle(
+                          color: Colors.black,
+                          backgroundColor: Colors.transparent),
+                      defaultToolbarButtons: [
+                        StyleButtons(),
+                        FontSettingButtons(),
+                        FontButtons(),
+                        ColorButtons(),
+                        ListButtons(),
+                        ParagraphButtons(),
+                        InsertButtons(),
+                        OtherButtons(),
+                      ],
+                    ),
+                    htmlEditorOptions: const HtmlEditorOptions(
+                      hint: "Your text here...",
+                      autoAdjustHeight: false,
+                      spellCheck: true,
+                      adjustHeightForKeyboard: false,
+                      androidUseHybridComposition: false,
+                      initialText: "",
+                    ),
+                    otherOptions: const OtherOptions(
+                        height: 200, decoration: BoxDecoration()),
                   ),
-                  htmlToolbarOptions: const HtmlToolbarOptions(
-                    dropdownMenuMaxHeight: 200,
-                    dropdownMenuDirection: DropdownMenuDirection.down,
-                    dropdownItemHeight: 60,
-                    toolbarType: ToolbarType.nativeScrollable,
-                    textStyle: TextStyle(
-                        color: Colors.black,
-                        backgroundColor: Colors.transparent),
-                    defaultToolbarButtons: [
-                      StyleButtons(),
-                      FontSettingButtons(),
-                      FontButtons(),
-                      ColorButtons(),
-                      ListButtons(),
-                      ParagraphButtons(),
-                      InsertButtons(),
-                      OtherButtons(),
-                    ],
-                  ),
-                  htmlEditorOptions: const HtmlEditorOptions(
-                    hint: "Your text here...",
-                    autoAdjustHeight: false,
-                    spellCheck: true,
-                    adjustHeightForKeyboard: false,
-                    androidUseHybridComposition: false,
-                    initialText: "",
-                  ),
-                  otherOptions: const OtherOptions(
-                      height: 200, decoration: BoxDecoration()),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
