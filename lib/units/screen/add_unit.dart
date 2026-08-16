@@ -177,13 +177,16 @@ class _AddUnitState extends State<AddUnit> {
                                                               .getSubjectListByCourseCode(
                                                                   _selectedCourseCode);
                                                         },
-                                                        items: courseDataProvider
-                                                            .courseList
-                                                            .map<
-                                                                    DropdownMenuItem<
-                                                                        String>>(
-                                                                (CourseModel
-                                                                    value) {
+                                                        items: {
+                                                          for (final CourseModel value
+                                                              in courseDataProvider
+                                                                  .courseList)
+                                                            value.name: value
+                                                        }.values.map<
+                                                                DropdownMenuItem<
+                                                                    String>>(
+                                                            (CourseModel
+                                                                value) {
                                                           return DropdownMenuItem<
                                                               String>(
                                                             value: value.name,

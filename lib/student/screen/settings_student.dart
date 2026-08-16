@@ -210,10 +210,14 @@ class _SettingStudentState extends State<SettingStudent> {
                                                                           await studentVM
                                                                               .getSubjectList(_selectedCourseCode);
                                                                         },
-                                                                        items: studentVM
-                                                                            .courseList
-                                                                            .map<DropdownMenuItem<String>>((CourseModel?
-                                                                                value) {
+                                                                        items: {
+                                                                          for (final CourseModel? value
+                                                                              in studentVM.courseList)
+                                                                            value!.name: value
+                                                                        }.values.map<
+                                                                            DropdownMenuItem<
+                                                                                String>>((CourseModel?
+                                                                            value) {
                                                                           return DropdownMenuItem<
                                                                               String>(
                                                                             value:
@@ -543,8 +547,8 @@ class _SettingStudentState extends State<SettingStudent> {
                                                                         5),
                                                             color: AppColorsInApp
                                                                 .colorOrange
-                                                                .withValues(alpha: 
-                                                                    0.1),
+                                                                .withValues(
+                                                                    alpha: 0.1),
                                                           ),
                                                           child: Row(
                                                             mainAxisAlignment:
@@ -619,8 +623,9 @@ class _SettingStudentState extends State<SettingStudent> {
                                                                       decoration: BoxDecoration(
                                                                           borderRadius: BorderRadius.circular(
                                                                               3),
-                                                                          color: AppColorsInApp.colorBlue.withValues(alpha: 
-                                                                              0.5)),
+                                                                          color: AppColorsInApp.colorBlue.withValues(
+                                                                              alpha:
+                                                                                  0.5)),
                                                                       child: Text(
                                                                           "Total Unit: ${studentVM.enrolledCourseBaseModel!.enrolledCourseList[index].unitCodeList.length}")),
                                                                   const SizedBox(

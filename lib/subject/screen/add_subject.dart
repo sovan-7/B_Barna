@@ -167,13 +167,15 @@ class _AddSubjectState extends State<AddSubject> {
                                                               newValue!;
                                                         });
                                                       },
-                                                      items: _courseViewModel
-                                                          .courseList
-                                                          .map<
-                                                                  DropdownMenuItem<
-                                                                      String>>(
-                                                              (CourseModel
-                                                                  value) {
+                                                      items: {
+                                                        for (final CourseModel value
+                                                            in _courseViewModel
+                                                                .courseList)
+                                                          value.name: value
+                                                      }.values.map<
+                                                              DropdownMenuItem<
+                                                                  String>>(
+                                                          (CourseModel value) {
                                                         return DropdownMenuItem<
                                                             String>(
                                                           value: value.name,
@@ -657,18 +659,18 @@ class _AddSubjectState extends State<AddSubject> {
                                                           TextInputType.number,
                                                     ),
                                                   ),
-                                                   Padding(
-                                                      padding:
-                                                          const EdgeInsets.only(
-                                                              top: 25.0),
-                                                      child: CustomTextField(
-                                                        title: "Selling Price",
-                                                        labelText:
-                                                            "Selling Price",
-                                                        textEditingController:
-                                                            sellingPriceController,
-                                                      ),
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                            top: 25.0),
+                                                    child: CustomTextField(
+                                                      title: "Selling Price",
+                                                      labelText:
+                                                          "Selling Price",
+                                                      textEditingController:
+                                                          sellingPriceController,
                                                     ),
+                                                  ),
                                                   Padding(
                                                       padding:
                                                           const EdgeInsets.only(
@@ -895,8 +897,9 @@ class _AddSubjectState extends State<AddSubject> {
                                                       "Please fill course type",
                                                   isSuccess: false);
                                             } else if (priceController
-                                                .text.isEmpty||sellingPriceController
-                                                .text.isEmpty) {
+                                                    .text.isEmpty ||
+                                                sellingPriceController
+                                                    .text.isEmpty) {
                                               Helper.showSnackBarMessage(
                                                   msg: "Please fill price",
                                                   isSuccess: false);

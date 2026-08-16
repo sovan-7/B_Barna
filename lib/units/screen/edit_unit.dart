@@ -204,13 +204,16 @@ class _EditUnitState extends State<EditUnit> {
                                                                 .getSubjectListByCourseCode(
                                                                     _selectedCourseCode);
                                                           },
-                                                          items: courseDataProvider
-                                                              .courseList
-                                                              .map<
-                                                                      DropdownMenuItem<
-                                                                          String>>(
-                                                                  (CourseModel
-                                                                      value) {
+                                                          items: {
+                                                            for (final CourseModel value
+                                                                in courseDataProvider
+                                                                    .courseList)
+                                                              value.name: value
+                                                          }.values.map<
+                                                                  DropdownMenuItem<
+                                                                      String>>(
+                                                              (CourseModel
+                                                                  value) {
                                                             return DropdownMenuItem<
                                                                 String>(
                                                               value: value.name,
@@ -665,7 +668,7 @@ class _EditUnitState extends State<EditUnit> {
                                                     .text.isNotEmpty &&
                                                 _selectedSubjectCode != "" &&
                                                 displayPriorityController
-                                                    .text.isNotEmpty ) {
+                                                    .text.isNotEmpty) {
                                               LoaderDialogs.showLoadingDialog();
                                               UnitModel unitData = UnitModel(
                                                   _selectedCourseCode,

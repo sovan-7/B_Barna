@@ -60,9 +60,10 @@ class _EditSubjectState extends State<EditSubject> {
     imageName = "img_${widget.subjectData.code}";
     _selectedCourseValue = widget.subjectData.courseName;
     priceController.text = widget.subjectData.price.toString();
-    sellingPriceController.text = widget.subjectData.sellingPrice == doubleDefault
-        ? widget.subjectData.price.toString()
-        : widget.subjectData.sellingPrice.toString();
+    sellingPriceController.text =
+        widget.subjectData.sellingPrice == doubleDefault
+            ? widget.subjectData.price.toString()
+            : widget.subjectData.sellingPrice.toString();
     _selectedCourseType = widget.subjectData.courseType.toString();
     willShow = widget.subjectData.willDisplay;
     isLocked = widget.subjectData.isLocked;
@@ -181,13 +182,15 @@ class _EditSubjectState extends State<EditSubject> {
                                                               newValue!;
                                                         });
                                                       },
-                                                      items: courseViewModel
-                                                          .courseList
-                                                          .map<
-                                                                  DropdownMenuItem<
-                                                                      String>>(
-                                                              (CourseModel
-                                                                  value) {
+                                                      items: {
+                                                        for (final CourseModel value
+                                                            in courseViewModel
+                                                                .courseList)
+                                                          value.name: value
+                                                      }.values.map<
+                                                              DropdownMenuItem<
+                                                                  String>>(
+                                                          (CourseModel value) {
                                                         return DropdownMenuItem<
                                                             String>(
                                                           value: value.name,
