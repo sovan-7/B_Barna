@@ -34,11 +34,103 @@ class _AddTopicState extends State<AddTopic> {
   String? _selectedUnitName;
   String selectedUnitCode = "";
 
+  // --- dynamic unit code fields (horizontal, + / - controls) ---
+  final List<TextEditingController> _extraUnitCodeControllers = [
+    TextEditingController(),
+  ];
+
+  void _addUnitCodeField() {
+    setState(() {
+      _extraUnitCodeControllers.add(TextEditingController());
+    });
+  }
+
+  void _removeUnitCodeField(int index) {
+    setState(() {
+      _extraUnitCodeControllers[index].dispose();
+      _extraUnitCodeControllers.removeAt(index);
+    });
+  }
+  // --- end dynamic unit code fields ---
+
   final GlobalKey<ScaffoldState> key = GlobalKey();
   @override
   void initState() {
     Provider.of<CourseViewModel>(context, listen: false).getCourseList();
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    topicCodeController.dispose();
+    topicNameController.dispose();
+    displayPriorityController.dispose();
+    for (final c in _extraUnitCodeControllers) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Widget _buildExtraUnitCodeFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Unit Codes",
+          style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: AppColorsInApp.colorGrey),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              for (int i = 0; i < _extraUnitCodeControllers.length; i++)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 130,
+                      height: 45,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        color: AppColorsInApp.colorWhite,
+                      ),
+                      child: TextField(
+                        controller: _extraUnitCodeControllers[i],
+                        style: const TextStyle(
+                            color: AppColorsInApp.colorBlack1),
+                        decoration: const InputDecoration(
+                          hintText: "Code",
+                          border: InputBorder.none,
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline,
+                          color: AppColorsInApp.colorLightRed),
+                      onPressed: _extraUnitCodeControllers.length > 1
+                          ? () => _removeUnitCodeField(i)
+                          : null,
+                    ),
+                  ],
+                ),
+              IconButton(
+                icon: Icon(Icons.add_circle_outline,
+                    color: AppColorsInApp.colorSecondary),
+                onPressed: _addUnitCodeField,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -62,8 +154,8 @@ class _AddTopicState extends State<AddTopic> {
                     if (width > 900)
                       const Expanded(
                           child: ExtraSideBar(
-                        sidebarIndex: 4,
-                      )),
+                            sidebarIndex: 4,
+                          )),
                     Expanded(
                       flex: 5,
                       child: Container(
@@ -86,73 +178,73 @@ class _AddTopicState extends State<AddTopic> {
                                         topicDataProvider, child) {
                                       return Column(
                                         mainAxisAlignment:
-                                            MainAxisAlignment.spaceEvenly,
+                                        MainAxisAlignment.spaceEvenly,
                                         crossAxisAlignment:
-                                            CrossAxisAlignment.center,
+                                        CrossAxisAlignment.center,
                                         children: [
                                           Row(
                                             mainAxisAlignment:
-                                                MainAxisAlignment.start,
+                                            MainAxisAlignment.start,
                                             crossAxisAlignment:
-                                                CrossAxisAlignment.start,
+                                            CrossAxisAlignment.start,
                                             children: [
                                               Column(
                                                 mainAxisAlignment:
-                                                    MainAxisAlignment
-                                                        .spaceEvenly,
+                                                MainAxisAlignment
+                                                    .spaceEvenly,
                                                 crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
+                                                CrossAxisAlignment.start,
                                                 children: [
                                                   Column(
                                                     mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .spaceBetween,
+                                                    MainAxisAlignment
+                                                        .spaceBetween,
                                                     crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
+                                                    CrossAxisAlignment
+                                                        .start,
                                                     children: [
                                                       const Text(
                                                         "Course",
                                                         style: TextStyle(
                                                             fontSize: 15,
                                                             fontWeight:
-                                                                FontWeight.bold,
+                                                            FontWeight.bold,
                                                             color:
-                                                                AppColorsInApp
-                                                                    .colorGrey),
+                                                            AppColorsInApp
+                                                                .colorGrey),
                                                       ),
                                                       IgnorePointer(
                                                         ignoring:
-                                                            courseDataProvider
-                                                                .courseList
-                                                                .isEmpty,
+                                                        courseDataProvider
+                                                            .courseList
+                                                            .isEmpty,
                                                         child: Container(
                                                           width: 350,
                                                           margin:
-                                                              const EdgeInsets
-                                                                  .only(
+                                                          const EdgeInsets
+                                                              .only(
                                                             top: 10,
                                                             bottom: 20,
                                                           ),
                                                           padding:
-                                                              const EdgeInsets
-                                                                  .only(
-                                                                  left: 15,
-                                                                  right: 15),
+                                                          const EdgeInsets
+                                                              .only(
+                                                              left: 15,
+                                                              right: 15),
                                                           decoration:
-                                                              BoxDecoration(
+                                                          BoxDecoration(
                                                             borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        10),
+                                                            BorderRadius
+                                                                .circular(
+                                                                10),
                                                             color:
-                                                                AppColorsInApp
-                                                                    .colorWhite,
+                                                            AppColorsInApp
+                                                                .colorWhite,
                                                           ),
                                                           child: DropdownButton<
                                                               String>(
                                                             value:
-                                                                _selectedCourseName,
+                                                            _selectedCourseName,
                                                             isExpanded: true,
                                                             hint: const Text(
                                                                 "Select Course"),
@@ -161,53 +253,53 @@ class _AddTopicState extends State<AddTopic> {
                                                                 color: AppColorsInApp
                                                                     .colorBlack1),
                                                             underline:
-                                                                const SizedBox(),
+                                                            const SizedBox(),
                                                             onChanged: (String?
-                                                                newValue) {
+                                                            newValue) {
                                                               setState(() {
                                                                 _selectedCourseName =
-                                                                    newValue!;
+                                                                newValue!;
                                                                 CourseModel
-                                                                    courseModel =
+                                                                courseModel =
                                                                     courseDataProvider
                                                                         .courseList
                                                                         .where((element) =>
-                                                                            element.name ==
-                                                                            newValue)
+                                                                    element.name ==
+                                                                        newValue)
                                                                         .first;
                                                                 _selectedCourseCode =
                                                                     courseModel
                                                                         .code;
                                                                 selectedSubjectCode =
-                                                                    "";
+                                                                "";
                                                                 _selectedSubjectName =
-                                                                    null;
+                                                                null;
                                                               });
 
                                                               topicDataProvider
                                                                   .getSubjectList(
-                                                                      courseCode:
-                                                                          _selectedCourseCode);
+                                                                  courseCode:
+                                                                  _selectedCourseCode);
                                                             },
                                                             items: {
                                                               for (final CourseModel value
-                                                                  in courseDataProvider
-                                                                      .courseList)
+                                                              in courseDataProvider
+                                                                  .courseList)
                                                                 value.name:
-                                                                    value
+                                                                value
                                                             }.values.map<
-                                                                    DropdownMenuItem<
-                                                                        String>>(
-                                                                (CourseModel
-                                                                    value) {
-                                                              return DropdownMenuItem<
-                                                                  String>(
-                                                                value:
+                                                                DropdownMenuItem<
+                                                                    String>>(
+                                                                    (CourseModel
+                                                                value) {
+                                                                  return DropdownMenuItem<
+                                                                      String>(
+                                                                    value:
                                                                     value.name,
-                                                                child: Text(
-                                                                    value.name),
-                                                              );
-                                                            }).toList(),
+                                                                    child: Text(
+                                                                        value.name),
+                                                                  );
+                                                                }).toList(),
                                                           ),
                                                         ),
                                                       ),
@@ -215,56 +307,56 @@ class _AddTopicState extends State<AddTopic> {
                                                   ),
                                                   Column(
                                                     mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .spaceBetween,
+                                                    MainAxisAlignment
+                                                        .spaceBetween,
                                                     crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
+                                                    CrossAxisAlignment
+                                                        .start,
                                                     children: [
                                                       const Text(
                                                         "Subject",
                                                         style: TextStyle(
                                                             fontSize: 15,
                                                             fontWeight:
-                                                                FontWeight.bold,
+                                                            FontWeight.bold,
                                                             color:
-                                                                AppColorsInApp
-                                                                    .colorGrey),
+                                                            AppColorsInApp
+                                                                .colorGrey),
                                                       ),
                                                       IgnorePointer(
                                                         ignoring:
-                                                            (_selectedCourseCode ==
-                                                                    "" ||
-                                                                topicDataProvider
-                                                                    .subjectList
-                                                                    .isEmpty),
+                                                        (_selectedCourseCode ==
+                                                            "" ||
+                                                            topicDataProvider
+                                                                .subjectList
+                                                                .isEmpty),
                                                         child: Container(
                                                           width: 350,
                                                           margin:
-                                                              const EdgeInsets
-                                                                  .only(
+                                                          const EdgeInsets
+                                                              .only(
                                                             top: 10,
                                                             bottom: 20,
                                                           ),
                                                           padding:
-                                                              const EdgeInsets
-                                                                  .only(
-                                                                  left: 15,
-                                                                  right: 15),
+                                                          const EdgeInsets
+                                                              .only(
+                                                              left: 15,
+                                                              right: 15),
                                                           decoration:
-                                                              BoxDecoration(
+                                                          BoxDecoration(
                                                             borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        10),
+                                                            BorderRadius
+                                                                .circular(
+                                                                10),
                                                             color:
-                                                                AppColorsInApp
-                                                                    .colorWhite,
+                                                            AppColorsInApp
+                                                                .colorWhite,
                                                           ),
                                                           child: DropdownButton<
                                                               String>(
                                                             value:
-                                                                _selectedSubjectName,
+                                                            _selectedSubjectName,
                                                             isExpanded: true,
                                                             hint: const Text(
                                                                 "Select Subject"),
@@ -273,48 +365,48 @@ class _AddTopicState extends State<AddTopic> {
                                                                 color: AppColorsInApp
                                                                     .colorBlack1),
                                                             underline:
-                                                                const SizedBox(),
+                                                            const SizedBox(),
                                                             onChanged: (String?
-                                                                newValue) {
+                                                            newValue) {
                                                               setState(() {
                                                                 _selectedSubjectName =
-                                                                    newValue!;
+                                                                newValue!;
                                                                 SubjectModel
-                                                                    subjectModel =
+                                                                subjectModel =
                                                                     topicDataProvider
                                                                         .subjectList
                                                                         .where((element) =>
-                                                                            element.name ==
-                                                                            newValue)
+                                                                    element.name ==
+                                                                        newValue)
                                                                         .first;
                                                                 selectedSubjectCode =
                                                                     subjectModel
                                                                         .code;
                                                                 _selectedUnitName =
-                                                                    null;
+                                                                null;
                                                                 selectedUnitCode =
-                                                                    "";
+                                                                "";
                                                               });
                                                               topicDataProvider
                                                                   .getUnitList(
-                                                                      subjectCode:
-                                                                          selectedSubjectCode);
+                                                                  subjectCode:
+                                                                  selectedSubjectCode);
                                                             },
                                                             items: topicDataProvider
                                                                 .subjectList
                                                                 .map<
-                                                                        DropdownMenuItem<
-                                                                            String>>(
+                                                                DropdownMenuItem<
+                                                                    String>>(
                                                                     (SubjectModel
-                                                                        value) {
-                                                              return DropdownMenuItem<
-                                                                  String>(
-                                                                value:
+                                                                value) {
+                                                                  return DropdownMenuItem<
+                                                                      String>(
+                                                                    value:
                                                                     value.name,
-                                                                child: Text(
-                                                                    value.name),
-                                                              );
-                                                            }).toList(),
+                                                                    child: Text(
+                                                                        value.name),
+                                                                  );
+                                                                }).toList(),
                                                           ),
                                                         ),
                                                       ),
@@ -322,56 +414,56 @@ class _AddTopicState extends State<AddTopic> {
                                                   ),
                                                   Column(
                                                     mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .spaceBetween,
+                                                    MainAxisAlignment
+                                                        .spaceBetween,
                                                     crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
+                                                    CrossAxisAlignment
+                                                        .start,
                                                     children: [
                                                       const Text(
                                                         "Unit",
                                                         style: TextStyle(
                                                             fontSize: 15,
                                                             fontWeight:
-                                                                FontWeight.bold,
+                                                            FontWeight.bold,
                                                             color:
-                                                                AppColorsInApp
-                                                                    .colorGrey),
+                                                            AppColorsInApp
+                                                                .colorGrey),
                                                       ),
                                                       IgnorePointer(
                                                         ignoring:
-                                                            (selectedSubjectCode ==
-                                                                    "" ||
-                                                                topicDataProvider
-                                                                    .unitList
-                                                                    .isEmpty),
+                                                        (selectedSubjectCode ==
+                                                            "" ||
+                                                            topicDataProvider
+                                                                .unitList
+                                                                .isEmpty),
                                                         child: Container(
                                                           width: 350,
                                                           margin:
-                                                              const EdgeInsets
-                                                                  .only(
+                                                          const EdgeInsets
+                                                              .only(
                                                             top: 10,
                                                             bottom: 20,
                                                           ),
                                                           padding:
-                                                              const EdgeInsets
-                                                                  .only(
-                                                                  left: 15,
-                                                                  right: 15),
+                                                          const EdgeInsets
+                                                              .only(
+                                                              left: 15,
+                                                              right: 15),
                                                           decoration:
-                                                              BoxDecoration(
+                                                          BoxDecoration(
                                                             borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        10),
+                                                            BorderRadius
+                                                                .circular(
+                                                                10),
                                                             color:
-                                                                AppColorsInApp
-                                                                    .colorWhite,
+                                                            AppColorsInApp
+                                                                .colorWhite,
                                                           ),
                                                           child: DropdownButton<
                                                               String>(
                                                             value:
-                                                                _selectedUnitName,
+                                                            _selectedUnitName,
                                                             isExpanded: true,
                                                             hint: const Text(
                                                                 "Select Unit"),
@@ -380,19 +472,19 @@ class _AddTopicState extends State<AddTopic> {
                                                                 color: AppColorsInApp
                                                                     .colorBlack1),
                                                             underline:
-                                                                const SizedBox(),
+                                                            const SizedBox(),
                                                             onChanged: (String?
-                                                                newValue) {
+                                                            newValue) {
                                                               setState(() {
                                                                 _selectedUnitName =
-                                                                    newValue!;
+                                                                newValue!;
                                                                 UnitModel
-                                                                    unitModel =
+                                                                unitModel =
                                                                     topicDataProvider
                                                                         .unitList
                                                                         .where((element) =>
-                                                                            element.name ==
-                                                                            newValue)
+                                                                    element.name ==
+                                                                        newValue)
                                                                         .first;
                                                                 selectedUnitCode =
                                                                     unitModel
@@ -402,18 +494,18 @@ class _AddTopicState extends State<AddTopic> {
                                                             items: topicDataProvider
                                                                 .unitList
                                                                 .map<
-                                                                        DropdownMenuItem<
-                                                                            String>>(
+                                                                DropdownMenuItem<
+                                                                    String>>(
                                                                     (UnitModel
-                                                                        value) {
-                                                              return DropdownMenuItem<
-                                                                  String>(
-                                                                value:
+                                                                value) {
+                                                                  return DropdownMenuItem<
+                                                                      String>(
+                                                                    value:
                                                                     value.name,
-                                                                child: Text(
-                                                                    value.name),
-                                                              );
-                                                            }).toList(),
+                                                                    child: Text(
+                                                                        value.name),
+                                                                  );
+                                                                }).toList(),
                                                           ),
                                                         ),
                                                       ),
@@ -422,56 +514,64 @@ class _AddTopicState extends State<AddTopic> {
                                                   if (width < 900)
                                                     Column(
                                                       mainAxisAlignment:
-                                                          MainAxisAlignment
-                                                              .spaceEvenly,
+                                                      MainAxisAlignment
+                                                          .spaceEvenly,
                                                       crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
+                                                      CrossAxisAlignment
+                                                          .start,
                                                       children: [
                                                         Padding(
                                                           padding:
-                                                              const EdgeInsets
-                                                                  .only(
-                                                                  top: 20.0),
+                                                          const EdgeInsets
+                                                              .only(
+                                                              top: 20.0),
                                                           child:
-                                                              CustomTextField(
+                                                          CustomTextField(
                                                             title: "Topic Code",
                                                             labelText:
-                                                                "Topic Code",
+                                                            "Topic Code",
                                                             textEditingController:
-                                                                topicCodeController,
+                                                            topicCodeController,
                                                           ),
                                                         ),
                                                         Padding(
                                                           padding:
-                                                              const EdgeInsets
-                                                                  .only(
-                                                                  top: 20.0),
+                                                          const EdgeInsets
+                                                              .only(
+                                                              top: 20.0),
                                                           child:
-                                                              CustomTextField(
+                                                          _buildExtraUnitCodeFields(),
+                                                        ),
+                                                        Padding(
+                                                          padding:
+                                                          const EdgeInsets
+                                                              .only(
+                                                              top: 20.0),
+                                                          child:
+                                                          CustomTextField(
                                                             title: "Topic Name",
                                                             labelText:
-                                                                "Topic Name",
+                                                            "Topic Name",
                                                             textEditingController:
-                                                                topicNameController,
+                                                            topicNameController,
                                                           ),
                                                         ),
                                                         Padding(
                                                           padding:
-                                                              const EdgeInsets
-                                                                  .only(
-                                                                  top: 20.0),
+                                                          const EdgeInsets
+                                                              .only(
+                                                              top: 20.0),
                                                           child:
-                                                              CustomTextField(
+                                                          CustomTextField(
                                                             title:
-                                                                "Display Priority",
+                                                            "Display Priority",
                                                             labelText:
-                                                                "Display Priority",
+                                                            "Display Priority",
                                                             textEditingController:
-                                                                displayPriorityController,
+                                                            displayPriorityController,
                                                             textInputType:
-                                                                TextInputType
-                                                                    .number,
+                                                            TextInputType
+                                                                .number,
                                                           ),
                                                         ),
                                                       ],
@@ -486,45 +586,53 @@ class _AddTopicState extends State<AddTopic> {
                                                           : 10),
                                                   child: Column(
                                                     mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .spaceEvenly,
+                                                    MainAxisAlignment
+                                                        .spaceEvenly,
                                                     crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
+                                                    CrossAxisAlignment
+                                                        .start,
                                                     children: [
                                                       CustomTextField(
                                                         title: "Topic Code",
                                                         labelText: "Topic Code",
                                                         textEditingController:
-                                                            topicCodeController,
+                                                        topicCodeController,
                                                       ),
                                                       Padding(
                                                         padding:
-                                                            const EdgeInsets
-                                                                .only(
-                                                                top: 20.0),
+                                                        const EdgeInsets
+                                                            .only(
+                                                            top: 20.0),
+                                                        child:
+                                                        _buildExtraUnitCodeFields(),
+                                                      ),
+                                                      Padding(
+                                                        padding:
+                                                        const EdgeInsets
+                                                            .only(
+                                                            top: 20.0),
                                                         child: CustomTextField(
                                                           title: "Topic Name",
                                                           labelText:
-                                                              "Topic Name",
+                                                          "Topic Name",
                                                           textEditingController:
-                                                              topicNameController,
+                                                          topicNameController,
                                                         ),
                                                       ),
                                                       Padding(
                                                         padding:
-                                                            const EdgeInsets
-                                                                .only(top: 20),
+                                                        const EdgeInsets
+                                                            .only(top: 20),
                                                         child: CustomTextField(
                                                           title:
-                                                              "Display Priority",
+                                                          "Display Priority",
                                                           labelText:
-                                                              "Display Priority",
+                                                          "Display Priority",
                                                           textEditingController:
-                                                              displayPriorityController,
+                                                          displayPriorityController,
                                                           textInputType:
-                                                              TextInputType
-                                                                  .number,
+                                                          TextInputType
+                                                              .number,
                                                         ),
                                                       ),
                                                     ],
@@ -534,10 +642,10 @@ class _AddTopicState extends State<AddTopic> {
                                           ),
                                           Padding(
                                             padding:
-                                                const EdgeInsets.only(top: 30),
+                                            const EdgeInsets.only(top: 30),
                                             child: SaveButton(onPRess: () {
                                               if (topicCodeController
-                                                      .text.isNotEmpty &&
+                                                  .text.isNotEmpty &&
                                                   _selectedCourseCode != "" &&
                                                   selectedSubjectCode != "" &&
                                                   selectedUnitCode != "" &&
@@ -547,6 +655,16 @@ class _AddTopicState extends State<AddTopic> {
                                                       .text.isNotEmpty) {
                                                 LoaderDialogs
                                                     .showLoadingDialog();
+
+                                                final List<String>
+                                                unitCodeList =
+                                                _extraUnitCodeControllers
+                                                    .map((c) => c.text
+                                                    .trim()
+                                                    )
+                                                    .where((v) =>
+                                                v.isNotEmpty)
+                                                    .toList();
 
                                                 TopicModel topicModel = TopicModel(
                                                     topicCodeController.text
@@ -566,7 +684,13 @@ class _AddTopicState extends State<AddTopic> {
                                                     selectedUnitCode,
                                                     int.parse(
                                                         displayPriorityController
-                                                            .text));
+                                                            .text),
+                                                unitCodeList);
+                                                // TODO: once TopicModel has a
+                                                // `unitCodeList` field, pass
+                                                // it into the constructor
+                                                // above, e.g.
+                                                // ..., unitCodeList);
                                                 topicDataProvider
                                                     .addTopic(topicModel)
                                                     .then((value) async {
@@ -574,7 +698,7 @@ class _AddTopicState extends State<AddTopic> {
                                                   Navigator.pop(context);
                                                   Helper.showSnackBarMessage(
                                                       msg:
-                                                          "Topic added successfully",
+                                                      "Topic added successfully",
                                                       isSuccess: true);
                                                   Navigator.pop(context);
                                                 });
@@ -582,36 +706,36 @@ class _AddTopicState extends State<AddTopic> {
                                                 if (_selectedCourseCode == "") {
                                                   Helper.showSnackBarMessage(
                                                       msg:
-                                                          "Please select a course",
+                                                      "Please select a course",
                                                       isSuccess: false);
                                                 } else if (selectedSubjectCode ==
                                                     "") {
                                                   Helper.showSnackBarMessage(
                                                       msg:
-                                                          "Please select a subject",
+                                                      "Please select a subject",
                                                       isSuccess: false);
                                                 } else if (selectedUnitCode ==
                                                     "") {
                                                   Helper.showSnackBarMessage(
                                                       msg:
-                                                          "Please select a unit",
+                                                      "Please select a unit",
                                                       isSuccess: false);
                                                 } else if (topicCodeController
                                                     .text.isEmpty) {
                                                   Helper.showSnackBarMessage(
                                                       msg:
-                                                          "Please fill topic code",
+                                                      "Please fill topic code",
                                                       isSuccess: false);
                                                 } else if (topicNameController
                                                     .text.isEmpty) {
                                                   Helper.showSnackBarMessage(
                                                       msg:
-                                                          "Please fill topic name",
+                                                      "Please fill topic name",
                                                       isSuccess: false);
                                                 } else {
                                                   Helper.showSnackBarMessage(
                                                       msg:
-                                                          "Please fill display priority",
+                                                      "Please fill display priority",
                                                       isSuccess: false);
                                                 }
                                               }
@@ -636,8 +760,8 @@ class _AddTopicState extends State<AddTopic> {
         ),
         drawer: width < 900
             ? const Drawer(
-                child: ExtraSideBar(sidebarIndex: 4),
-              )
+          child: ExtraSideBar(sidebarIndex: 4),
+        )
             : null);
   }
 }

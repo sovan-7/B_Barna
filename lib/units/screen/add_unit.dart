@@ -34,6 +34,25 @@ class _AddUnitState extends State<AddUnit> {
   TextEditingController unitDescriptionController = TextEditingController();
   TextEditingController displayPriorityController = TextEditingController();
 
+  // --- dynamic extra code fields (horizontal, + / - controls) ---
+  final List<TextEditingController> _extraCodeControllers = [
+    TextEditingController(),
+  ];
+
+  void _addCodeField() {
+    setState(() {
+      _extraCodeControllers.add(TextEditingController());
+    });
+  }
+
+  void _removeCodeField(int index) {
+    setState(() {
+      _extraCodeControllers[index].dispose();
+      _extraCodeControllers.removeAt(index);
+    });
+  }
+  // --- end dynamic extra code fields ---
+
   String? _selectedCourseName;
   String? _selectedSubjectName;
   String _selectedCourseCode = "";
@@ -41,10 +60,85 @@ class _AddUnitState extends State<AddUnit> {
   final GlobalKey<ScaffoldState> key = GlobalKey();
   bool willShow = false;
   bool isLocked = false;
+
   @override
   void initState() {
     Provider.of<CourseViewModel>(context, listen: false).getCourseList();
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    unitCodeController.dispose();
+    unitNameController.dispose();
+    unitDescriptionController.dispose();
+    displayPriorityController.dispose();
+    for (final c in _extraCodeControllers) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Widget _buildExtraCodeFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Subject Codes",
+          style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: AppColorsInApp.colorGrey),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              for (int i = 0; i < _extraCodeControllers.length; i++)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 100,
+                      height: 45,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(5),
+                        color: AppColorsInApp.colorWhite,
+                      ),
+                      child: TextField(
+                        controller: _extraCodeControllers[i],
+                        style:
+                            const TextStyle(color: AppColorsInApp.colorBlack1),
+                        decoration: const InputDecoration(
+                          hintText: "Code",
+                          border: InputBorder.none,
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline,
+                          color: AppColorsInApp.colorLightRed),
+                      onPressed: _extraCodeControllers.length > 1
+                          ? () => _removeCodeField(i)
+                          : null,
+                    ),
+                  ],
+                ),
+              IconButton(
+                icon: Icon(Icons.add_circle_outline,
+                    color: AppColorsInApp.colorSecondary),
+                onPressed: _addCodeField,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -506,6 +600,13 @@ class _AddUnitState extends State<AddUnit> {
                                                       padding:
                                                           const EdgeInsets.only(
                                                               top: 20.0),
+                                                      child:
+                                                          _buildExtraCodeFields(),
+                                                    ),
+                                                    Padding(
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                              top: 20.0),
                                                       child: CustomTextField(
                                                         title: "Unit Name",
                                                         labelText: "Unit Name",
@@ -567,6 +668,13 @@ class _AddUnitState extends State<AddUnit> {
                                                     padding:
                                                         const EdgeInsets.only(
                                                             top: 20.0),
+                                                    child:
+                                                        _buildExtraCodeFields(),
+                                                  ),
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                            top: 20.0),
                                                     child: CustomTextField(
                                                       title: "Unit Name",
                                                       labelText: "Unit Name",
@@ -615,6 +723,13 @@ class _AddUnitState extends State<AddUnit> {
                                               displayPriorityController
                                                   .text.isNotEmpty) {
                                             LoaderDialogs.showLoadingDialog();
+
+                                            final extraCodes =
+                                                _extraCodeControllers
+                                                    .map((c) => c.text.trim())
+                                                    .where((v) => v.isNotEmpty)
+                                                    .toList();
+
                                             UnitModel unitData = UnitModel(
                                                 _selectedCourseCode,
                                                 _selectedCourseName ??
@@ -634,7 +749,12 @@ class _AddUnitState extends State<AddUnit> {
                                                         .text),
                                                 DateTime.now()
                                                     .millisecondsSinceEpoch,
-                                                willShow);
+                                                willShow,
+                                                extraCodes);
+                                            // NOTE: extraCodes is computed above.
+                                            // If UnitModel gets an
+                                            // `extraCodes` field, pass it into
+                                            // the constructor call above.
                                             await unitDataProvider
                                                 .addUnit(unitData)
                                                 .then((value) async {

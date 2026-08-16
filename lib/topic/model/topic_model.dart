@@ -17,6 +17,7 @@ class TopicModel {
   List<String> quizCodeList = [];
   List<String> videoCodeList = [];
   List<String> pdfCodeList = [];
+  List<String> unitCodeList = [];
 
   TopicModel(
       this.code,
@@ -28,7 +29,8 @@ class TopicModel {
       this.subjectCode,
       this.unitName,
       this.unitCode,
-      this.displayPriority);
+      this.displayPriority,
+      this.unitCodeList);
 
   Map<String, dynamic> toMap() {
     return {
@@ -41,7 +43,8 @@ class TopicModel {
       "subject_code": subjectCode,
       "unit_name": unitName,
       "unit_code": unitCode,
-      "display_priority":displayPriority
+      "display_priority": displayPriority,
+      "unitCodeList": unitCodeList
     };
   }
 
@@ -56,7 +59,7 @@ class TopicModel {
         subjectCode = doc.data()!["subject_code"] ?? stringDefault,
         unitName = doc.data()!["unit_name"] ?? stringDefault,
         unitCode = doc.data()!["unit_code"] ?? stringDefault,
-        displayPriority=doc.data()!["display_priority"] ??intDefault,
+        displayPriority = doc.data()!["display_priority"] ?? intDefault,
         audioCodeList = doc.data()!["audio_code_list"] == null
             ? []
             : List<String>.from(doc.data()!["audio_code_list"].map((x) => x)),
@@ -68,5 +71,8 @@ class TopicModel {
             : List<String>.from(doc.data()!["pdf_code_list"].map((x) => x)),
         quizCodeList = doc.data()!["quiz_code_list"] == null
             ? []
-            : List<String>.from(doc.data()!["quiz_code_list"].map((x) => x));
+            : List<String>.from(doc.data()!["quiz_code_list"].map((x) => x)),
+        unitCodeList = doc.data()!["unitCodeList"] == null
+            ? []
+            : List<String>.from(doc.data()!["unitCodeList"].map((x) => x));
 }

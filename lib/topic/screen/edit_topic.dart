@@ -37,6 +37,23 @@ class _EditTopicState extends State<EditTopic> {
   String? _selectedUnitName;
   final GlobalKey<ScaffoldState> key = GlobalKey();
 
+  // --- dynamic unit code fields (horizontal, + / - controls) ---
+  final List<TextEditingController> _extraUnitCodeControllers = [];
+
+  void _addUnitCodeField() {
+    setState(() {
+      _extraUnitCodeControllers.add(TextEditingController());
+    });
+  }
+
+  void _removeUnitCodeField(int index) {
+    setState(() {
+      _extraUnitCodeControllers[index].dispose();
+      _extraUnitCodeControllers.removeAt(index);
+    });
+  }
+  // --- end dynamic unit code fields ---
+
   @override
   void initState() {
     setState(() {
@@ -50,6 +67,23 @@ class _EditTopicState extends State<EditTopic> {
       _selectedSubjectCode = widget.topicData.subjectCode;
       _selectedUnitName = widget.topicData.unitName;
       selectedUnitCode = widget.topicData.unitCode;
+
+      // TODO: once TopicModel has a `unitCodeList` field, prefill from it
+      // the same way EditUnit prefills from widget.unitData.subjectCodeList,
+      // e.g.:
+      // _extraUnitCodeControllers.addAll(
+      //   widget.topicData.unitCodeList.isEmpty
+      //       ? [TextEditingController()]
+      //       : widget.topicData.unitCodeList
+      //           .map((code) => TextEditingController(text: code)),
+      // );
+     // _extraUnitCodeControllers.add(TextEditingController());
+      _extraUnitCodeControllers.addAll(
+        widget.topicData.unitCodeList.isEmpty
+            ? [TextEditingController()]
+            : widget.topicData.unitCodeList
+            .map((code) => TextEditingController(text: code)),
+      );
     });
 
     Provider.of<CourseViewModel>(context, listen: false).getCourseList();
@@ -58,6 +92,79 @@ class _EditTopicState extends State<EditTopic> {
     topicViewModel.getSubjectList(courseCode: _selectedCourseCode);
     topicViewModel.getUnitList(subjectCode: _selectedSubjectCode);
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    topicCodeController.dispose();
+    topicNameController.dispose();
+    displayPriorityController.dispose();
+    for (final c in _extraUnitCodeControllers) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Widget _buildExtraUnitCodeFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Unit Codes",
+          style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: AppColorsInApp.colorGrey),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              for (int i = 0; i < _extraUnitCodeControllers.length; i++)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 130,
+                      height: 45,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        color: AppColorsInApp.colorWhite,
+                      ),
+                      child: TextField(
+                        controller: _extraUnitCodeControllers[i],
+                        style:
+                            const TextStyle(color: AppColorsInApp.colorBlack1),
+                        decoration: const InputDecoration(
+                          hintText: "Code",
+                          border: InputBorder.none,
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline,
+                          color: AppColorsInApp.colorLightRed),
+                      onPressed: _extraUnitCodeControllers.length > 1
+                          ? () => _removeUnitCodeField(i)
+                          : null,
+                    ),
+                  ],
+                ),
+              IconButton(
+                icon: Icon(Icons.add_circle_outline,
+                    color: AppColorsInApp.colorSecondary),
+                onPressed: _addUnitCodeField,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -440,6 +547,14 @@ class _EditTopicState extends State<EditTopic> {
                                                             const EdgeInsets
                                                                 .only(
                                                                 top: 20.0),
+                                                        child:
+                                                            _buildExtraUnitCodeFields(),
+                                                      ),
+                                                      Padding(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .only(
+                                                                top: 20.0),
                                                         child: CustomTextField(
                                                           title: "Topic Name",
                                                           labelText:
@@ -491,6 +606,13 @@ class _EditTopicState extends State<EditTopic> {
                                                       padding:
                                                           const EdgeInsets.only(
                                                               top: 20.0),
+                                                      child:
+                                                          _buildExtraUnitCodeFields(),
+                                                    ),
+                                                    Padding(
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                              top: 20.0),
                                                       child: CustomTextField(
                                                         title: "Topic Name",
                                                         labelText: "Topic Name",
@@ -530,6 +652,15 @@ class _EditTopicState extends State<EditTopic> {
                                               topicNameController
                                                   .text.isNotEmpty) {
                                             LoaderDialogs.showLoadingDialog();
+
+                                            final List<String> unitCodeList =
+                                                _extraUnitCodeControllers
+                                                    .map((c) => c.text
+                                                        .trim()
+                                                        .toUpperCase())
+                                                    .where((v) => v.isNotEmpty)
+                                                    .toList();
+
                                             TopicModel unitData = TopicModel(
                                                 topicCodeController.text
                                                     .trim()
@@ -547,7 +678,12 @@ class _EditTopicState extends State<EditTopic> {
                                                 selectedUnitCode,
                                                 int.parse(
                                                     displayPriorityController
-                                                        .text));
+                                                        .text),
+                                                unitCodeList);
+                                            // TODO: once TopicModel has a
+                                            // `unitCodeList` field, pass
+                                            // it into the constructor above,
+                                            // e.g. ..., unitCodeList);
                                             await topicDataProvider
                                                 .updateTopic(unitData,
                                                     widget.topicData.docId)

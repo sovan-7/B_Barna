@@ -37,6 +37,23 @@ class _EditUnitState extends State<EditUnit> {
   TextEditingController unitDescriptionController = TextEditingController();
   TextEditingController displayPriorityController = TextEditingController();
 
+  // --- dynamic subject code fields (horizontal, + / - controls) ---
+  final List<TextEditingController> _extraCodeControllers = [];
+
+  void _addCodeField() {
+    setState(() {
+      _extraCodeControllers.add(TextEditingController());
+    });
+  }
+
+  void _removeCodeField(int index) {
+    setState(() {
+      _extraCodeControllers[index].dispose();
+      _extraCodeControllers.removeAt(index);
+    });
+  }
+  // --- end dynamic subject code fields ---
+
   String? _selectedCourseName;
   String? _selectedSubjectName;
   String _selectedCourseCode = "";
@@ -60,6 +77,13 @@ class _EditUnitState extends State<EditUnit> {
       _selectedSubjectCode = widget.unitData.subjectCode;
       willShow = widget.unitData.willShow;
       isLocked = widget.unitData.lockStatus;
+
+      _extraCodeControllers.addAll(
+        widget.unitData.subjectCodeList.isEmpty
+            ? [TextEditingController()]
+            : widget.unitData.subjectCodeList
+                .map((code) => TextEditingController(text: code)),
+      );
     });
     Provider.of<CourseViewModel>(context, listen: false).getCourseList();
     UnitViewModel unitViewModel =
@@ -67,6 +91,80 @@ class _EditUnitState extends State<EditUnit> {
     unitViewModel.getSubjectListByCourseCode(_selectedCourseCode);
     //unitViewModel.getFirstUnitList();
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    unitCodeController.dispose();
+    unitNameController.dispose();
+    unitDescriptionController.dispose();
+    displayPriorityController.dispose();
+    for (final c in _extraCodeControllers) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Widget _buildExtraCodeFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Subject Codes",
+          style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: AppColorsInApp.colorGrey),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              for (int i = 0; i < _extraCodeControllers.length; i++)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 100,
+                      height: 45,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        color: AppColorsInApp.colorWhite,
+                      ),
+                      child: TextField(
+                        controller: _extraCodeControllers[i],
+                        style:
+                            const TextStyle(color: AppColorsInApp.colorBlack1),
+                        decoration: const InputDecoration(
+                          hintText: "Code",
+                          border: InputBorder.none,
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline,
+                          color: AppColorsInApp.colorLightRed),
+                      onPressed: _extraCodeControllers.length > 1
+                          ? () => _removeCodeField(i)
+                          : null,
+                    ),
+                  ],
+                ),
+              IconButton(
+                icon: Icon(Icons.add_circle_outline,
+                    color: AppColorsInApp.colorSecondary),
+                onPressed: _addCodeField,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -322,6 +420,7 @@ class _EditUnitState extends State<EditUnit> {
                                                   textEditingController:
                                                       unitCodeController,
                                                 ),
+
                                                 Padding(
                                                   padding:
                                                       const EdgeInsets.only(
@@ -588,6 +687,13 @@ class _EditUnitState extends State<EditUnit> {
                                                                   .number,
                                                         ),
                                                       ),
+                                                      Padding(
+                                                        padding:
+                                                            const EdgeInsets.only(
+                                                                top: 20.0),
+                                                        child:
+                                                            _buildExtraCodeFields(),
+                                                      ),
                                                     ],
                                                   ),
                                               ],
@@ -614,6 +720,13 @@ class _EditUnitState extends State<EditUnit> {
                                                         textEditingController:
                                                             unitCodeController,
                                                       ),
+                                                    ),
+                                                    Padding(
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                              top: 20.0),
+                                                      child:
+                                                          _buildExtraCodeFields(),
                                                     ),
                                                     Padding(
                                                       padding:
@@ -670,6 +783,15 @@ class _EditUnitState extends State<EditUnit> {
                                                 displayPriorityController
                                                     .text.isNotEmpty) {
                                               LoaderDialogs.showLoadingDialog();
+
+                                              final List<String>
+                                                  subjectCodeList =
+                                                  _extraCodeControllers
+                                                      .map((c) => c.text.trim())
+                                                      .where(
+                                                          (v) => v.isNotEmpty)
+                                                      .toList();
+
                                               UnitModel unitData = UnitModel(
                                                   _selectedCourseCode,
                                                   _selectedCourseName ??
@@ -689,7 +811,8 @@ class _EditUnitState extends State<EditUnit> {
                                                       displayPriorityController
                                                           .text),
                                                   widget.unitData.timeStamp,
-                                                  willShow);
+                                                  willShow,
+                                                  subjectCodeList);
                                               await unitDataProvider
                                                   .updateUnit(unitData,
                                                       widget.unitData.id)
