@@ -103,10 +103,10 @@ class _AddUnitState extends State<AddUnit> {
                   children: [
                     Container(
                       width: 100,
-                      height: 45,
+                      height: 40,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(5),
+                        borderRadius: BorderRadius.circular(3),
                         color: AppColorsInApp.colorWhite,
                       ),
                       child: TextField(
@@ -117,6 +117,7 @@ class _AddUnitState extends State<AddUnit> {
                           hintText: "Code",
                           border: InputBorder.none,
                           isDense: true,
+                          hintStyle: TextStyle(color:AppColorsInApp.colorGrey )
                         ),
                       ),
                     ),
@@ -596,13 +597,13 @@ class _AddUnitState extends State<AddUnit> {
                                                             unitCodeController,
                                                       ),
                                                     ),
-                                                    Padding(
-                                                      padding:
-                                                          const EdgeInsets.only(
-                                                              top: 20.0),
-                                                      child:
-                                                          _buildExtraCodeFields(),
-                                                    ),
+                                                    // Padding(
+                                                    //   padding:
+                                                    //       const EdgeInsets.only(
+                                                    //           top: 20.0),
+                                                    //   child:
+                                                    //       _buildExtraCodeFields(),
+                                                    // ),
                                                     Padding(
                                                       padding:
                                                           const EdgeInsets.only(
@@ -664,13 +665,13 @@ class _AddUnitState extends State<AddUnit> {
                                                     textEditingController:
                                                         unitCodeController,
                                                   ),
-                                                  Padding(
-                                                    padding:
-                                                        const EdgeInsets.only(
-                                                            top: 20.0),
-                                                    child:
-                                                        _buildExtraCodeFields(),
-                                                  ),
+                                                  // Padding(
+                                                  //   padding:
+                                                  //       const EdgeInsets.only(
+                                                  //           top: 20.0),
+                                                  //   child:
+                                                  //       _buildExtraCodeFields(),
+                                                  // ),
                                                   Padding(
                                                     padding:
                                                         const EdgeInsets.only(
@@ -712,6 +713,16 @@ class _AddUnitState extends State<AddUnit> {
                                               ),
                                             ),
                                         ],
+                                      ),
+                                      Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Padding(
+                                          padding:
+                                          const EdgeInsets.only(
+                                              top: 20.0),
+                                          child:
+                                          _buildExtraCodeFields(),
+                                        ),
                                       ),
                                       Padding(
                                         padding: const EdgeInsets.only(top: 30),

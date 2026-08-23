@@ -129,10 +129,10 @@ class _EditUnitState extends State<EditUnit> {
                   children: [
                     Container(
                       width: 100,
-                      height: 45,
+                      height: 40,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(3),
                         color: AppColorsInApp.colorWhite,
                       ),
                       child: TextField(
@@ -141,6 +141,7 @@ class _EditUnitState extends State<EditUnit> {
                             const TextStyle(color: AppColorsInApp.colorBlack1),
                         decoration: const InputDecoration(
                           hintText: "Code",
+                          hintStyle: TextStyle(color: AppColorsInApp.colorGrey),
                           border: InputBorder.none,
                           isDense: true,
                         ),
@@ -324,114 +325,115 @@ class _EditUnitState extends State<EditUnit> {
                                                     ),
                                                   ],
                                                 ),
-                                                Column(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment
-                                                          .spaceBetween,
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    const Text(
-                                                      "Subject",
-                                                      style: TextStyle(
-                                                          fontSize: 15,
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          color: AppColorsInApp
-                                                              .colorGrey),
-                                                    ),
-                                                    IgnorePointer(
-                                                      ignoring:
-                                                          (_selectedCourseCode ==
-                                                                  "" ||
-                                                              unitDataProvider
-                                                                  .subjectListByCourseId
-                                                                  .isEmpty),
-                                                      child: Container(
-                                                        width: 350,
-                                                        margin: const EdgeInsets
-                                                            .only(
-                                                          top: 10,
-                                                          bottom: 20,
-                                                        ),
-                                                        padding:
-                                                            const EdgeInsets
-                                                                .only(
-                                                                left: 15,
-                                                                right: 15),
-                                                        decoration:
-                                                            BoxDecoration(
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(10),
-                                                          color: AppColorsInApp
-                                                              .colorWhite,
-                                                        ),
-                                                        child: DropdownButton<
-                                                            String>(
-                                                          value:
-                                                              _selectedSubjectName,
-                                                          isExpanded: true,
-                                                          hint: const Text(
-                                                              "Select Subject"),
-                                                          elevation: 16,
-                                                          style: const TextStyle(
-                                                              color: AppColorsInApp
-                                                                  .colorBlack1),
-                                                          underline:
-                                                              Container(),
-                                                          onChanged:
-                                                              (String? value) {
-                                                            setState(() {
-                                                              _selectedSubjectName =
-                                                                  value!;
-                                                              _selectedSubjectCode = unitDataProvider
-                                                                  .subjectListByCourseId
-                                                                  .where((element) =>
-                                                                      element
-                                                                          .name ==
-                                                                      _selectedSubjectName)
-                                                                  .first
-                                                                  .code;
-                                                            });
-                                                          },
-                                                          items: unitDataProvider
-                                                              .subjectListByCourseId
-                                                              .map<
-                                                                      DropdownMenuItem<
-                                                                          String>>(
-                                                                  (SubjectModel
-                                                                      value) {
-                                                            return DropdownMenuItem<
-                                                                String>(
-                                                              value: value.name,
-                                                              child: Text(
-                                                                  value.name),
-                                                            );
-                                                          }).toList(),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                CustomTextField(
-                                                  title: "Unit Code",
-                                                  labelText: "Unit code",
-                                                  textEditingController:
-                                                      unitCodeController,
-                                                ),
-
-                                                Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                          top: 20.0),
-                                                  child: CustomTextField(
-                                                    title: "Unit Name",
-                                                    labelText: "Unit Name",
+                                                // Column(
+                                                //   mainAxisAlignment:
+                                                //       MainAxisAlignment
+                                                //           .spaceBetween,
+                                                //   crossAxisAlignment:
+                                                //       CrossAxisAlignment.start,
+                                                //   children: [
+                                                //     const Text(
+                                                //       "Subject",
+                                                //       style: TextStyle(
+                                                //           fontSize: 15,
+                                                //           fontWeight:
+                                                //               FontWeight.bold,
+                                                //           color: AppColorsInApp
+                                                //               .colorGrey),
+                                                //     ),
+                                                //     IgnorePointer(
+                                                //       ignoring:
+                                                //           (_selectedCourseCode ==
+                                                //                   "" ||
+                                                //               unitDataProvider
+                                                //                   .subjectListByCourseId
+                                                //                   .isEmpty),
+                                                //       child: Container(
+                                                //         width: 350,
+                                                //         margin: const EdgeInsets
+                                                //             .only(
+                                                //           top: 10,
+                                                //           bottom: 20,
+                                                //         ),
+                                                //         padding:
+                                                //             const EdgeInsets
+                                                //                 .only(
+                                                //                 left: 15,
+                                                //                 right: 15),
+                                                //         decoration:
+                                                //             BoxDecoration(
+                                                //           borderRadius:
+                                                //               BorderRadius
+                                                //                   .circular(10),
+                                                //           color: AppColorsInApp
+                                                //               .colorWhite,
+                                                //         ),
+                                                //         child: DropdownButton<
+                                                //             String>(
+                                                //           value:
+                                                //               _selectedSubjectName,
+                                                //           isExpanded: true,
+                                                //           hint: const Text(
+                                                //               "Select Subject"),
+                                                //           elevation: 16,
+                                                //           style: const TextStyle(
+                                                //               color: AppColorsInApp
+                                                //                   .colorBlack1),
+                                                //           underline:
+                                                //               Container(),
+                                                //           onChanged:
+                                                //               (String? value) {
+                                                //             setState(() {
+                                                //               _selectedSubjectName =
+                                                //                   value!;
+                                                //               _selectedSubjectCode = unitDataProvider
+                                                //                   .subjectListByCourseId
+                                                //                   .where((element) =>
+                                                //                       element
+                                                //                           .name ==
+                                                //                       _selectedSubjectName)
+                                                //                   .first
+                                                //                   .code;
+                                                //             });
+                                                //           },
+                                                //           items: unitDataProvider
+                                                //               .subjectListByCourseId
+                                                //               .map<
+                                                //                       DropdownMenuItem<
+                                                //                           String>>(
+                                                //                   (SubjectModel
+                                                //                       value) {
+                                                //             return DropdownMenuItem<
+                                                //                 String>(
+                                                //               value: value.name,
+                                                //               child: Text(
+                                                //                   value.name),
+                                                //             );
+                                                //           }).toList(),
+                                                //         ),
+                                                //       ),
+                                                //     ),
+                                                //   ],
+                                                // ),
+                                                if (width < 900)
+                                                  CustomTextField(
+                                                    title: "Unit Code",
+                                                    labelText: "Unit code",
                                                     textEditingController:
-                                                        unitNameController,
+                                                        unitCodeController,
                                                   ),
-                                                ),
+                                                if (width < 900)
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                            top: 20.0),
+                                                    child: CustomTextField(
+                                                      title: "Unit Name",
+                                                      labelText: "Unit Name",
+                                                      textEditingController:
+                                                          unitNameController,
+                                                    ),
+                                                  ),
                                                 Padding(
                                                   padding:
                                                       const EdgeInsets.only(
@@ -687,13 +689,14 @@ class _EditUnitState extends State<EditUnit> {
                                                                   .number,
                                                         ),
                                                       ),
-                                                      Padding(
-                                                        padding:
-                                                            const EdgeInsets.only(
-                                                                top: 20.0),
-                                                        child:
-                                                            _buildExtraCodeFields(),
-                                                      ),
+                                                      // Padding(
+                                                      //   padding:
+                                                      //       const EdgeInsets
+                                                      //           .only(
+                                                      //           top: 20.0),
+                                                      //   child:
+                                                      //       _buildExtraCodeFields(),
+                                                      // ),
                                                     ],
                                                   ),
                                               ],
@@ -721,13 +724,15 @@ class _EditUnitState extends State<EditUnit> {
                                                             unitCodeController,
                                                       ),
                                                     ),
-                                                    Padding(
-                                                      padding:
-                                                          const EdgeInsets.only(
-                                                              top: 20.0),
-                                                      child:
-                                                          _buildExtraCodeFields(),
-                                                    ),
+
+                                                    // Padding(
+                                                    //   padding:
+                                                    //       const EdgeInsets.only(
+                                                    //           top: 20.0),
+                                                    //   child:
+                                                    //       _buildExtraCodeFields(),
+                                                    // ),
+
                                                     Padding(
                                                       padding:
                                                           const EdgeInsets.only(
@@ -772,6 +777,14 @@ class _EditUnitState extends State<EditUnit> {
                                                 ),
                                               ),
                                           ],
+                                        ),
+                                        Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: Padding(
+                                            padding: const EdgeInsets.only(
+                                                top: 20.0),
+                                            child: _buildExtraCodeFields(),
+                                          ),
                                         ),
                                         Padding(
                                           padding:
