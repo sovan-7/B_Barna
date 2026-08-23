@@ -95,10 +95,10 @@ class _AddTopicState extends State<AddTopic> {
                   children: [
                     Container(
                       width: 130,
-                      height: 45,
+                      height: 40,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(3),
                         color: AppColorsInApp.colorWhite,
                       ),
                       child: TextField(
@@ -107,6 +107,7 @@ class _AddTopicState extends State<AddTopic> {
                             color: AppColorsInApp.colorBlack1),
                         decoration: const InputDecoration(
                           hintText: "Code",
+                          hintStyle: TextStyle(color:AppColorsInApp.colorGrey),
                           border: InputBorder.none,
                           isDense: true,
                         ),
@@ -534,14 +535,7 @@ class _AddTopicState extends State<AddTopic> {
                                                             topicCodeController,
                                                           ),
                                                         ),
-                                                        Padding(
-                                                          padding:
-                                                          const EdgeInsets
-                                                              .only(
-                                                              top: 20.0),
-                                                          child:
-                                                          _buildExtraUnitCodeFields(),
-                                                        ),
+
                                                         Padding(
                                                           padding:
                                                           const EdgeInsets
@@ -598,14 +592,7 @@ class _AddTopicState extends State<AddTopic> {
                                                         textEditingController:
                                                         topicCodeController,
                                                       ),
-                                                      Padding(
-                                                        padding:
-                                                        const EdgeInsets
-                                                            .only(
-                                                            top: 20.0),
-                                                        child:
-                                                        _buildExtraUnitCodeFields(),
-                                                      ),
+
                                                       Padding(
                                                         padding:
                                                         const EdgeInsets
@@ -639,6 +626,17 @@ class _AddTopicState extends State<AddTopic> {
                                                   ),
                                                 ),
                                             ],
+                                          ),
+                                          Align(
+                                            alignment: Alignment.centerLeft,
+                                            child: Padding(
+                                              padding:
+                                              const EdgeInsets
+                                                  .only(
+                                                  top: 20.0),
+                                              child:
+                                              _buildExtraUnitCodeFields(),
+                                            ),
                                           ),
                                           Padding(
                                             padding:
