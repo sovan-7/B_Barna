@@ -652,7 +652,7 @@ class _EditTopicState extends State<EditTopic> {
                                                   _extraUnitCodeControllers
                                                       .map((c) => c.text
                                                           .trim()
-                                                          .toUpperCase())
+                                                          )
                                                       .where((v) => v.isNotEmpty)
                                                       .toList();
                                       

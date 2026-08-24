@@ -22,17 +22,23 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-      options: const FirebaseOptions(
-          apiKey: "AIzaSyDMo9aZg1-zlGXCfp2Bft6o3MZaFwiv67Q",
-          appId: "1:23963148123:web:f16c6712a418dedecc847e",
-          messagingSenderId: "23963148123",
-          projectId: "bbarna-6a725",
-          authDomain: "bbarna-6a725.firebaseapp.com",
-          storageBucket: "bbarna-6a725.appspot.com",
-          measurementId: "G-T6QDXLT4V0"));
+  try {
+    await Firebase.initializeApp(
+        options: const FirebaseOptions(
+            apiKey: "AIzaSyDMo9aZg1-zlGXCfp2Bft6o3MZaFwiv67Q",
+            appId: "1:23963148123:web:f16c6712a418dedecc847e",
+            messagingSenderId: "23963148123",
+            projectId: "bbarna-6a725",
+            authDomain: "bbarna-6a725.firebaseapp.com",
+            storageBucket: "bbarna-6a725.appspot.com",
+            measurementId: "G-T6QDXLT4V0"));
 
-  sharedPreferences = await SharedPreferences.getInstance();
+    sharedPreferences = await SharedPreferences.getInstance();
+  } catch (error, stackTrace) {
+    debugPrint("App initialization failed: $error\n$stackTrace");
+    runApp(InitializationErrorApp(error: error));
+    return;
+  }
 
   runApp(MultiProvider(
     providers: [
@@ -51,6 +57,39 @@ void main() async {
     ],
     child: const MyApp(),
   ));
+}
+
+class InitializationErrorApp extends StatelessWidget {
+  final Object error;
+
+  const InitializationErrorApp({super.key, required this.error});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                const SizedBox(height: 16),
+                const Text(
+                  "Failed to start the app",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text("$error", textAlign: TextAlign.center),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class MyApp extends StatelessWidget {
