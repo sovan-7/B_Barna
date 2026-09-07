@@ -33,18 +33,23 @@ class SidebarWidget extends StatelessWidget {
             size: 22,
             color: AppColorsInApp.colorBlack1,
           ),
-          Padding(
-            padding: const EdgeInsets.only(left: 8.0),
-            child: Text(
-              itemText,
-              style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0,
-                  color: AppColorsInApp.colorBlack1),
+          // Expanded (rather than a fixed Padding + Spacer) so long module
+          // names — "LIVE CLASSES" is the widest — ellipsize instead of
+          // overflowing the sidebar's narrow column.
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 8.0, right: 8.0),
+              child: Text(
+                itemText,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.0,
+                    color: AppColorsInApp.colorBlack1),
+              ),
             ),
           ),
-          const Spacer(),
           const Icon(
             Icons.arrow_right,
             color: AppColorsInApp.colorBlack1,

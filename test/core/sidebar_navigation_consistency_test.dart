@@ -19,10 +19,10 @@ import 'package:bbarna/core/widgets/sidebar_widget.dart';
 // <900px window widths).
 void main() {
   testWidgets(
-      'ExtraSideBar renders a "TEACHERS" entry at index 11 with the people icon',
+      'ExtraSideBar renders "TEACHERS" at index 11 and "LIVE CLASSES" at index 12',
       (tester) async {
     // Default test surface is too short for ListView.builder to lay out
-    // all 12 items (only the ones that fit in the viewport get built).
+    // all 13 items (only the ones that fit in the viewport get built).
     // Widen it so every item is actually mounted and findable.
     tester.view.physicalSize = const Size(800, 1200);
     tester.view.devicePixelRatio = 1.0;
@@ -36,9 +36,11 @@ void main() {
     final widgets =
         tester.widgetList<SidebarWidget>(find.byType(SidebarWidget)).toList();
 
-    expect(widgets, hasLength(12),
-        reason: '11 existing sections + the new Teachers section');
+    expect(widgets, hasLength(13),
+        reason: '11 original sections + Teachers + Live Classes');
     expect(widgets[11].itemText, 'TEACHERS');
     expect(widgets[11].iconData, Icons.people_alt_outlined);
+    expect(widgets[12].itemText, 'LIVE CLASSES');
+    expect(widgets[12].iconData, Icons.live_tv);
   });
 }

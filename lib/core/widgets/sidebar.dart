@@ -7,6 +7,7 @@ import 'package:bbarna/core/widgets/sidebar_widget.dart';
 import 'package:bbarna/resources/app_colors.dart';
 import 'package:bbarna/resources/constant.dart';
 import 'package:bbarna/course/screen/course_list.dart';
+import 'package:bbarna/live_class/screen/live_class_list.dart';
 import 'package:bbarna/documents/audio/screen/audio_list.dart';
 import 'package:bbarna/documents/pdf/screen/pdf_list.dart';
 import 'package:bbarna/documents/video/screen/video_list.dart';
@@ -45,6 +46,7 @@ class _SidebarState extends State<Sidebar> {
     const QuestionList(),
     const StudentList(),
     const TeacherList(),
+    const LiveClassList(),
   ];
 
   // Absolute positions within [moduleList]/[screenList] the logged-in

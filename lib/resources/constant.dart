@@ -29,6 +29,7 @@ const String banners = "banners";
 const String student = "student";
 const String enrolledCourse = "enrolledCourses";
 const String teacher = "teacher";
+const String liveClasses = "live_classes";
 
 /// Sidebar module names/icons, index-aligned. [Sidebar] and [ExtraSideBar]
 /// render navigation from this list; [AddTeacher] generates its
@@ -46,7 +47,12 @@ const List<String> moduleList = [
   "QUESTIONS",
   "STUDENTS",
   "TEACHERS",
+  "LIVE CLASSES",
 ];
+
+/// Position of the Live Classes module within [moduleList] — the value
+/// every Live Class screen passes as `ExtraSideBar(sidebarIndex: ...)`.
+const int liveClassModuleIndex = 12;
 
 const String roleAdmin = "admin";
 const String roleSubadmin = "subadmin";
@@ -73,5 +79,6 @@ const List<IconData> moduleIconList = [
   Icons.question_mark_sharp,
   Icons.people,
   Icons.people_alt_outlined,
+  Icons.live_tv,
 ];
 
