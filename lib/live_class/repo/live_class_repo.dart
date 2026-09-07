@@ -10,9 +10,11 @@ class LiveClassRepo {
 
   /// Adds the doc with server-stamped `createdAt`/`updatedAt` so ordering
   /// can't be skewed by a wrong clock on the admin's machine.
-  Future<DocumentReference<Map<String, dynamic>>> addLiveClass(
-      LiveClassModel liveClassModel) async {
-    return await _fireStore.collection(liveClasses).add({
+  /// Returns void rather than the new DocumentReference: no caller wants
+  /// the reference, and handing back a sealed Firestore type forces every
+  /// test that stubs this method to fake one.
+  Future<void> addLiveClass(LiveClassModel liveClassModel) async {
+    await _fireStore.collection(liveClasses).add({
       ...liveClassModel.toMap(),
       "createdAt": FieldValue.serverTimestamp(),
       "updatedAt": FieldValue.serverTimestamp(),

@@ -31,7 +31,7 @@ class LiveClassForm extends StatefulWidget {
 }
 
 /// The fields that can carry an inline error.
-enum _Field { title, teacher, start, end }
+enum _Field { title, teacher, date, start, end }
 
 class _LiveClassFormState extends State<LiveClassForm> {
   final TextEditingController titleController = TextEditingController();
@@ -41,9 +41,30 @@ class _LiveClassFormState extends State<LiveClassForm> {
   final GlobalKey<ScaffoldState> key = GlobalKey();
 
   String? _selectedTeacher;
-  DateTime? _startDateTime;
-  DateTime? _endDateTime;
+
+  /// A class runs within a single day, so the schedule is one date plus two
+  /// times rather than two independent date-times. Holding it that way is
+  /// what makes "the end is on another day" unrepresentable instead of
+  /// merely rejected.
+  DateTime? _classDate;
+  TimeOfDay? _startTime;
+  TimeOfDay? _endTime;
   bool _isSaving = false;
+
+  DateTime? get _startDateTime => _combine(_startTime);
+  DateTime? get _endDateTime => _combine(_endTime);
+
+  DateTime? _combine(TimeOfDay? time) {
+    if (_classDate == null || time == null) return null;
+    return DateTime(_classDate!.year, _classDate!.month, _classDate!.day,
+        time.hour, time.minute);
+  }
+
+  static DateTime _dateOnly(DateTime value) =>
+      DateTime(value.year, value.month, value.day);
+
+  static bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   /// Populated on a failed submit and cleared per-field as it is corrected,
   /// so the form never scolds you about something you already fixed.
@@ -59,8 +80,17 @@ class _LiveClassFormState extends State<LiveClassForm> {
       youtubeLinkController.text = existing.youtubeLink;
       teacherNameController.text = existing.teacherName;
       _selectedTeacher = existing.teacherName;
-      _startDateTime = existing.startDateTime;
-      _endDateTime = existing.endDateTime;
+      _classDate = _dateOnly(existing.startDateTime);
+      _startTime = TimeOfDay.fromDateTime(existing.startDateTime);
+      _endTime = TimeOfDay.fromDateTime(existing.endDateTime);
+      // A class saved before the same-day rule can end on another date.
+      // Collapsing it onto the start date silently would move the class, so
+      // the mismatch is flagged up front rather than at the first save.
+      if (!_sameDay(existing.startDateTime, existing.endDateTime)) {
+        _errors[_Field.end] =
+            "This class used to end on a different day — pick an end time "
+            "on the class date.";
+      }
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -88,17 +118,22 @@ class _LiveClassFormState extends State<LiveClassForm> {
     if ((_selectedTeacher ?? teacherNameController.text).trim().isEmpty) {
       errors[_Field.teacher] = "Choose or type a teacher";
     }
-    if (_startDateTime == null) {
-      errors[_Field.start] = "Pick when the class starts";
+    if (_classDate == null) {
+      errors[_Field.date] = "Pick the class date";
     }
-    if (_endDateTime == null) {
-      errors[_Field.end] = "Pick when the class ends";
-    } else if (_startDateTime != null &&
-        !_endDateTime!.isAfter(_startDateTime!)) {
-      errors[_Field.end] = "The end must be after the start";
+    if (_startTime == null) {
+      errors[_Field.start] = "Pick a start time";
+    }
+    if (_endTime == null) {
+      errors[_Field.end] = "Pick an end time";
+    } else if (_startTime != null &&
+        _minutes(_endTime!) <= _minutes(_startTime!)) {
+      errors[_Field.end] = "The end time must be after the start time";
     }
     return errors;
   }
+
+  static int _minutes(TimeOfDay time) => time.hour * 60 + time.minute;
 
   /// Re-runs validation only once the admin has already seen errors — that
   /// is what makes a correction clear its message as you make it.
@@ -186,26 +221,123 @@ class _LiveClassFormState extends State<LiveClassForm> {
     );
   }
 
-  /// Date first, then time, both defaulting to whatever is already chosen.
-  /// Returns null if the admin backs out of either step.
-  Future<DateTime?> _pickDateTime(DateTime? initial) async {
+  /// Both pickers are shown under the module's own palette rather than
+  /// Material's default purple, so the calendar and clock look like the
+  /// rest of the page instead of a system dialog dropped on top of it.
+  Future<void> _pickDate() async {
     final DateTime now = DateTime.now();
-    final DateTime base = initial ?? now;
-    final DateTime? date = await showDatePicker(
+    final DateTime base = _classDate ?? now;
+    final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: base,
       firstDate: DateTime(now.year - 1),
       lastDate: DateTime(now.year + 5),
+      helpText: "Class date",
+      builder: (context, child) => Theme(
+        data: LiveClassTheme.pickerTheme(context),
+        child: child!,
+      ),
     );
-    if (date == null || !mounted) return null;
+    if (picked == null || !mounted) return;
+    setState(() => _classDate = _dateOnly(picked));
+    _revalidate();
+  }
 
-    final TimeOfDay? time = await showTimePicker(
+  void _setDate(DateTime date) {
+    setState(() => _classDate = _dateOnly(date));
+    _revalidate();
+  }
+
+  Future<void> _pickStartTime() async {
+    final TimeOfDay? picked = await _showTimePicker(
+        _startTime ?? const TimeOfDay(hour: 18, minute: 0),
+        "Select the start time");
+    if (picked == null || !mounted) return;
+
+    setState(() {
+      final TimeOfDay? previousStart = _startTime;
+      _startTime = picked;
+      // Moving the start drags the end with it, keeping the length of the
+      // class — re-picking the end every time you shift a class by ten
+      // minutes is the sort of thing that makes a form tiring.
+      if (previousStart != null && _endTime != null) {
+        final int length = _minutes(_endTime!) - _minutes(previousStart);
+        if (length > 0) {
+          final int shifted = _minutes(picked) + length;
+          // A class cannot cross midnight any more, so an end that would
+          // spill into the next day is dropped for the admin to re-pick.
+          _endTime = shifted < 24 * 60
+              ? TimeOfDay(hour: shifted ~/ 60, minute: shifted % 60)
+              : null;
+        }
+      }
+    });
+    _revalidate();
+  }
+
+  Future<void> _pickEndTime() async {
+    final TimeOfDay initial = _endTime ??
+        (_startTime == null
+            ? const TimeOfDay(hour: 19, minute: 0)
+            : _plus(_startTime!, 60) ?? const TimeOfDay(hour: 23, minute: 59));
+    final TimeOfDay? picked =
+        await _showTimePicker(initial, "Select the end time");
+    if (picked == null || !mounted) return;
+    setState(() => _endTime = picked);
+    _revalidate();
+  }
+
+  Future<TimeOfDay?> _showTimePicker(TimeOfDay initial, String helpText) {
+    // Typed entry on a desktop with a keyboard — "0730 PM" is faster and
+    // more precise than dragging a clock face with a mouse. Touch-sized
+    // windows still get the dial, and either can be toggled from the
+    // dialog itself.
+    final bool hasKeyboard = MediaQuery.of(context).size.width >= 700;
+
+    return showTimePicker(
       context: context,
-      initialTime: TimeOfDay.fromDateTime(base),
+      initialTime: initial,
+      helpText: helpText,
+      initialEntryMode: hasKeyboard
+          ? TimePickerEntryMode.input
+          : TimePickerEntryMode.dial,
+      builder: (context, child) => Theme(
+        data: LiveClassTheme.pickerTheme(context),
+        child: child!,
+      ),
     );
-    if (time == null) return null;
+  }
 
-    return DateTime(date.year, date.month, date.day, time.hour, time.minute);
+  /// [start] advanced by [minutes], or null if that would pass midnight.
+  static TimeOfDay? _plus(TimeOfDay start, int minutes) {
+    final int total = _minutes(start) + minutes;
+    if (total >= 24 * 60) return null;
+    return TimeOfDay(hour: total ~/ 60, minute: total % 60);
+  }
+
+  /// Sets the end from the start — the common case is a class of a round
+  /// length, and picking "1h 30m" beats spinning a clock face to 7:30.
+  void _setDuration(int minutes) {
+    final TimeOfDay? start = _startTime;
+    if (start == null) return;
+    final TimeOfDay? end = _plus(start, minutes);
+    if (end == null) {
+      Helper.showSnackBarMessage(
+          msg: "That would run past midnight — a class has to end on the "
+              "same day.",
+          isSuccess: false);
+      return;
+    }
+    setState(() => _endTime = end);
+    _revalidate();
+  }
+
+  /// The length currently set, in minutes, or null when it is not a clean
+  /// pair — used to light up the matching duration chip.
+  int? get _durationMinutes {
+    if (_startTime == null || _endTime == null) return null;
+    final int length = _minutes(_endTime!) - _minutes(_startTime!);
+    return length > 0 ? length : null;
   }
 
   // ---- Layout ---------------------------------------------------------
@@ -526,13 +658,20 @@ class _LiveClassFormState extends State<LiveClassForm> {
               hint: const Text("Select a teacher",
                   style: TextStyle(
                       fontSize: 13, color: LiveClassTheme.inkFaint)),
-              // Derived from the ambient style rather than written from
-              // scratch: DropdownButton uses `style` as-is instead of
-              // merging it, so a literal TextStyle here would silently drop
-              // the app's font family if one is ever set on the theme.
-              style: DefaultTextStyle.of(context)
-                  .style
-                  .copyWith(fontSize: 13.5, color: LiveClassTheme.ink),
+              // DropdownButton uses `style` as-is rather than merging it
+              // with the ambient DefaultTextStyle, and this State's context
+              // sits *above* the Scaffold's Material — so inheriting from
+              // DefaultTextStyle.of(context) here picks up WidgetsApp's
+              // fallback error style and paints a yellow double underline
+              // under every teacher name. Take the font from the theme and
+              // pin the decoration off.
+              style: (Theme.of(context).textTheme.bodyMedium ??
+                      const TextStyle())
+                  .copyWith(
+                fontSize: 13.5,
+                color: LiveClassTheme.ink,
+                decoration: TextDecoration.none,
+              ),
               onChanged: (String? newValue) {
                 setState(() {
                   _selectedTeacher = newValue;
@@ -567,67 +706,269 @@ class _LiveClassFormState extends State<LiveClassForm> {
     );
   }
 
-  /// Start and end sit side by side above a summary line, so the length of
-  /// the class is something you read rather than compute.
+  /// A class runs inside one day, so the schedule reads as one date and two
+  /// times — not two date-times you have to keep in sync yourself. Quick
+  /// chips cover the common cases (today/tomorrow, a round-length class) so
+  /// the calendar and the clock face are only opened for the exceptions.
   Widget _scheduleFields(double width) {
     final bool stack = width < 700;
-    final Widget start = _dateTimeField(
-      label: "Starts",
-      value: _startDateTime,
+
+    final Widget startField = _timeField(
+      fieldKey: const Key('live_class_start_time_field'),
+      label: "Start time",
+      value: _startTime,
       error: _errors[_Field.start],
-      onPick: () async {
-        final DateTime? picked = await _pickDateTime(_startDateTime);
-        if (picked == null) return;
-        setState(() {
-          _startDateTime = picked;
-          // Keep the pair coherent: an end that is now in the past
-          // relative to the new start is cleared rather than silently
-          // left invalid.
-          if (_endDateTime != null && !_endDateTime!.isAfter(picked)) {
-            _endDateTime = null;
-          }
-        });
-        _revalidate();
-      },
+      onPick: _pickStartTime,
     );
-    final Widget end = _dateTimeField(
-      label: "Ends",
-      value: _endDateTime,
+    final Widget endField = _timeField(
+      fieldKey: const Key('live_class_end_time_field'),
+      label: "End time",
+      value: _endTime,
       error: _errors[_Field.end],
-      onPick: () async {
-        final DateTime? picked =
-            await _pickDateTime(_endDateTime ?? _startDateTime);
-        if (picked == null) return;
-        setState(() => _endDateTime = picked);
-        _revalidate();
-      },
+      onPick: _pickEndTime,
     );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _dateField(),
+        const SizedBox(height: LiveClassTheme.gapSm),
+        _quickDateChips(),
+        const SizedBox(height: LiveClassTheme.gapLg),
         if (stack)
           Column(children: [
-            start,
+            startField,
             const SizedBox(height: LiveClassTheme.gapMd),
-            end,
+            endField,
           ])
         else
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: start),
+              Expanded(child: startField),
               const SizedBox(width: LiveClassTheme.gapMd),
-              Expanded(child: end),
+              Expanded(child: endField),
             ],
           ),
+        const SizedBox(height: LiveClassTheme.gapMd),
+        _durationChips(),
         if (_startDateTime != null &&
             _endDateTime != null &&
             _endDateTime!.isAfter(_startDateTime!)) ...[
-          const SizedBox(height: LiveClassTheme.gapMd),
+          const SizedBox(height: LiveClassTheme.gapLg),
           _scheduleSummary(),
         ],
       ],
+    );
+  }
+
+  Widget _dateField() {
+    final String? error = _errors[_Field.date];
+    final bool isSet = _classDate != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Class date", style: LiveClassTheme.fieldLabel),
+        const SizedBox(height: 6),
+        _pickerBox(
+          key: const Key('live_class_date_field'),
+          icon: Icons.calendar_today_outlined,
+          text: isSet
+              ? "${LiveClassFormat.weekday.format(_classDate!)}, "
+                  "${LiveClassFormat.date.format(_classDate!)}"
+              : "Select the class date",
+          isSet: isSet,
+          hasError: error != null,
+          onTap: _pickDate,
+        ),
+        if (error != null) ...[
+          const SizedBox(height: 5),
+          Text(error, style: LiveClassTheme.errorText),
+        ],
+      ],
+    );
+  }
+
+  /// Today / Tomorrow / next week — the three dates an admin actually picks
+  /// most of the time, without opening a calendar at all.
+  Widget _quickDateChips() {
+    final DateTime today = _dateOnly(DateTime.now());
+    return Wrap(
+      spacing: LiveClassTheme.gapSm,
+      runSpacing: LiveClassTheme.gapSm,
+      children: [
+        for (final MapEntry<String, DateTime> option in {
+          "Today": today,
+          "Tomorrow": today.add(const Duration(days: 1)),
+          "In a week": today.add(const Duration(days: 7)),
+        }.entries)
+          _chip(
+            label: option.key,
+            selected:
+                _classDate != null && _sameDay(_classDate!, option.value),
+            onTap: () => _setDate(option.value),
+          ),
+      ],
+    );
+  }
+
+  /// Round lengths, applied from the start time. Disabled until there is a
+  /// start to measure from — a duration with no anchor means nothing.
+  Widget _durationChips() {
+    final bool enabled = _startTime != null;
+    final int? current = _durationMinutes;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          enabled ? "Duration" : "Duration — pick a start time first",
+          style: LiveClassTheme.fieldLabel.copyWith(
+              color: enabled
+                  ? const Color(0xFF344054)
+                  : LiveClassTheme.inkFaint),
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: LiveClassTheme.gapSm,
+          runSpacing: LiveClassTheme.gapSm,
+          children: [
+            for (final int minutes in const [30, 45, 60, 90, 120])
+              _chip(
+                label: LiveClassFormat.minutes(minutes),
+                selected: current == minutes,
+                enabled: enabled,
+                onTap: () => _setDuration(minutes),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _chip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+    bool enabled = true,
+  }) {
+    final Color accent = LiveClassTheme.accentFor(LiveClassStatus.upcoming);
+
+    return Material(
+      color: selected
+          ? LiveClassTheme.tintFor(LiveClassStatus.upcoming)
+          : LiveClassTheme.surface,
+      borderRadius: BorderRadius.circular(LiveClassTheme.radiusPill),
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(LiveClassTheme.radiusPill),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(LiveClassTheme.radiusPill),
+            border: Border.all(
+                color: selected ? accent : LiveClassTheme.hairline),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              color: !enabled
+                  ? LiveClassTheme.inkFaint
+                  : selected
+                      ? accent
+                      : LiveClassTheme.inkMuted,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _timeField({
+    required Key fieldKey,
+    required String label,
+    required TimeOfDay? value,
+    required VoidCallback onPick,
+    String? error,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: LiveClassTheme.fieldLabel),
+        const SizedBox(height: 6),
+        _pickerBox(
+          key: fieldKey,
+          icon: Icons.schedule,
+          text: value == null
+              ? "Select a time"
+              : LiveClassFormat.timeOfDay(value),
+          isSet: value != null,
+          hasError: error != null,
+          onTap: onPick,
+        ),
+        if (error != null) ...[
+          const SizedBox(height: 5),
+          Text(error, style: LiveClassTheme.errorText),
+        ],
+      ],
+    );
+  }
+
+  /// The shared shell for the date and time fields, so a calendar box and a
+  /// clock box are the same object with a different icon.
+  Widget _pickerBox({
+    required Key key,
+    required IconData icon,
+    required String text,
+    required bool isSet,
+    required bool hasError,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: LiveClassTheme.surface,
+      borderRadius: BorderRadius.circular(LiveClassTheme.radiusMd),
+      child: InkWell(
+        key: key,
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(LiveClassTheme.radiusMd),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(LiveClassTheme.radiusMd),
+            border: Border.all(
+                color: hasError
+                    ? LiveClassTheme.danger
+                    : LiveClassTheme.hairline),
+          ),
+          child: Row(
+            children: [
+              Icon(icon,
+                  size: 17,
+                  color: isSet
+                      ? LiveClassTheme.inkMuted
+                      : LiveClassTheme.inkFaint),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  text,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: isSet ? FontWeight.w600 : FontWeight.normal,
+                    color:
+                        isSet ? LiveClassTheme.ink : LiveClassTheme.inkFaint,
+                  ),
+                ),
+              ),
+              const Icon(Icons.keyboard_arrow_down,
+                  size: 18, color: LiveClassTheme.inkFaint),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -658,72 +999,6 @@ class _LiveClassFormState extends State<LiveClassForm> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _dateTimeField({
-    required String label,
-    required DateTime? value,
-    required VoidCallback onPick,
-    String? error,
-  }) {
-    final bool isSet = value != null;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: LiveClassTheme.fieldLabel),
-        const SizedBox(height: 6),
-        Material(
-          color: LiveClassTheme.surface,
-          borderRadius: BorderRadius.circular(LiveClassTheme.radiusMd),
-          child: InkWell(
-            onTap: onPick,
-            borderRadius: BorderRadius.circular(LiveClassTheme.radiusMd),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(LiveClassTheme.radiusMd),
-                border: Border.all(
-                    color: error != null
-                        ? LiveClassTheme.danger
-                        : LiveClassTheme.hairline),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.event_outlined,
-                      size: 17,
-                      color: isSet
-                          ? LiveClassTheme.inkMuted
-                          : LiveClassTheme.inkFaint),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      isSet
-                          ? LiveClassFormat.full.format(value)
-                          : "Select date & time",
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: isSet ? FontWeight.w600 : FontWeight.normal,
-                        color: isSet
-                            ? LiveClassTheme.ink
-                            : LiveClassTheme.inkFaint,
-                      ),
-                    ),
-                  ),
-                  const Icon(Icons.keyboard_arrow_down,
-                      size: 18, color: LiveClassTheme.inkFaint),
-                ],
-              ),
-            ),
-          ),
-        ),
-        if (error != null) ...[
-          const SizedBox(height: 5),
-          Text(error, style: LiveClassTheme.errorText),
-        ],
-      ],
     );
   }
 

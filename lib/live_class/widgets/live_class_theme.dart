@@ -84,6 +84,58 @@ class LiveClassTheme {
     }
   }
 
+  /// Theme for `showDatePicker` / `showTimePicker`.
+  ///
+  /// The stock dialogs arrive in Material's default purple, which reads as
+  /// a system dialog dropped onto the page rather than part of it. This
+  /// re-skins them with the module's own accent, surfaces and radii.
+  static ThemeData pickerTheme(BuildContext context) {
+    final ThemeData base = Theme.of(context);
+    final Color accent = accentFor(LiveClassStatus.upcoming);
+
+    return base.copyWith(
+      colorScheme: base.colorScheme.copyWith(
+        primary: accent,
+        onPrimary: Colors.white,
+        surface: surface,
+        onSurface: ink,
+        surfaceTint: Colors.transparent,
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radiusLg)),
+      ),
+      datePickerTheme: DatePickerThemeData(
+        backgroundColor: surface,
+        surfaceTintColor: Colors.transparent,
+        headerBackgroundColor: accent,
+        headerForegroundColor: Colors.white,
+        dividerColor: hairline,
+        todayBorder: BorderSide(color: accent, width: 1.2),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radiusLg)),
+      ),
+      timePickerTheme: TimePickerThemeData(
+        backgroundColor: surface,
+        dialBackgroundColor: surfaceMuted,
+        hourMinuteColor: surfaceMuted,
+        hourMinuteTextColor: ink,
+        dayPeriodColor: tintFor(LiveClassStatus.upcoming),
+        dayPeriodTextColor: ink,
+        dayPeriodBorderSide: const BorderSide(color: hairline),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radiusLg)),
+        hourMinuteShape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radiusMd)),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(foregroundColor: accent),
+      ),
+    );
+  }
+
   // ---- Type scale -----------------------------------------------------
   static const TextStyle pageTitle = TextStyle(
       fontSize: 22,
@@ -152,6 +204,20 @@ class LiveClassFormat {
     if (minutes == 0) return "${hours}h";
     return "${hours}h ${minutes}m";
   }
+
+  /// A round length as a chip label: 30m, 45m, 1h, 1h 30m, 2h.
+  static String minutes(int value) {
+    final int hours = value ~/ 60;
+    final int rest = value % 60;
+    if (hours == 0) return "${rest}m";
+    if (rest == 0) return "${hours}h";
+    return "${hours}h ${rest}m";
+  }
+
+  /// A [TimeOfDay] in the same 12-hour shape as every other time here.
+  /// Formatted off a throwaway date so it does not need a BuildContext.
+  static String timeOfDay(TimeOfDay value) =>
+      time.format(DateTime(2000, 1, 1, value.hour, value.minute));
 
   /// The one line that tells an admin whether this class needs them now:
   /// "Starts in 2 days", "Ends in 24 min", "Ended 3 days ago".
