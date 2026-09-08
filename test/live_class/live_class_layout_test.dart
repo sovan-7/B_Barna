@@ -82,8 +82,14 @@ void main() {
   setUp(() {
     repo = MockLiveClassRepo();
     when(() => repo.getLiveClassList()).thenAnswer((_) async => _fixture());
-    when(() => repo.getTeacherNames())
-        .thenAnswer((_) async => ['Ravi Kumar', 'Anita Desai']);
+    when(() => repo.getTeachers()).thenAnswer((_) async => const [
+          LiveClassTeacher(id: 'anita', name: 'Anita Desai'),
+          LiveClassTeacher(id: 'ravi', name: 'Ravi Kumar'),
+        ]);
+    when(() => repo.getSubjects()).thenAnswer((_) async => const [
+          LiveClassSubject(code: 'MECH', name: 'Mechanics'),
+          LiveClassSubject(code: 'ORG', name: 'Organic Chemistry'),
+        ]);
   });
 
   for (final Size size in _sizes) {
@@ -120,6 +126,89 @@ void main() {
       expect(find.text('Edit class'), findsOneWidget);
     });
   }
+
+  group('classes the app cannot read', () {
+    /// A class in the panel's original shape: no `startTime`, so the app
+    /// reads 0 and files it under Past however far ahead it is scheduled.
+    LiveClassModel legacy() {
+      final LiveClassModel model = _model('legacy', "Old class",
+          DateTime.now().add(const Duration(days: 2)));
+      model.needsAppSync = true;
+      return model;
+    }
+
+    testWidgets('a healthy list says nothing', (tester) async {
+      final vm = LiveClassViewModel(liveClassRepo: repo);
+      await _pump(tester, const Size(1440, 900),
+          const Scaffold(body: LiveClassList()), vm);
+
+      expect(find.byKey(const Key('live_class_app_sync_banner')), findsNothing);
+    });
+
+    testWidgets('an out-of-date class is called out', (tester) async {
+      when(() => repo.getLiveClassList())
+          .thenAnswer((_) async => [..._fixture(), legacy()]);
+
+      final vm = LiveClassViewModel(liveClassRepo: repo);
+      await _pump(tester, const Size(1440, 900),
+          const Scaffold(body: LiveClassList()), vm);
+
+      // The only previous symptom was the class sitting in the wrong list
+      // on a device the admin was not holding.
+      expect(
+          find.text('1 class is not showing correctly in the app'),
+          findsOneWidget);
+    });
+
+    testWidgets('updating them rewrites each one and clears the banner',
+        (tester) async {
+      when(() => repo.getLiveClassList())
+          .thenAnswer((_) async => [legacy(), legacy()]);
+      when(() => repo.migrateToAppSchema(any())).thenAnswer((_) async {});
+
+      final vm = LiveClassViewModel(liveClassRepo: repo);
+      await _pump(tester, const Size(1440, 900),
+          const Scaffold(body: LiveClassList()), vm);
+
+      expect(find.text('2 classes are not showing correctly in the app'),
+          findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('live_class_app_sync_button')));
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      verify(() => repo.migrateToAppSchema(any())).called(2);
+      expect(find.byKey(const Key('live_class_app_sync_banner')), findsNothing);
+      // No refetch — the rows already on screen are updated in place.
+      verify(() => repo.getLiveClassList()).called(1);
+    });
+
+    testWidgets('one failure does not strand the rest', (tester) async {
+      final LiveClassModel bad = legacy()..docId = 'bad';
+      when(() => repo.getLiveClassList())
+          .thenAnswer((_) async => [bad, legacy()]);
+      when(() => repo.migrateToAppSchema(any())).thenAnswer((invocation) async {
+        final LiveClassModel model =
+            invocation.positionalArguments.first as LiveClassModel;
+        if (model.docId == 'bad') throw Exception('permission denied');
+      });
+
+      final vm = LiveClassViewModel(liveClassRepo: repo);
+      await _pump(tester, const Size(1440, 900),
+          const Scaffold(body: LiveClassList()), vm);
+
+      await tester.tap(find.byKey(const Key('live_class_app_sync_button')));
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // The good one landed; the banner stays up for the one that did not.
+      expect(vm.classesNeedingAppSync, hasLength(1));
+      expect(find.text('1 class is not showing correctly in the app'),
+          findsOneWidget);
+    });
+  });
 
   testWidgets('each tab renders its own bucket', (tester) async {
     final vm = LiveClassViewModel(liveClassRepo: repo);
@@ -162,6 +251,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Give the class a title'), findsOneWidget);
+    expect(find.text('Choose the subject this class is for'), findsOneWidget);
     expect(find.text('Pick the class date'), findsOneWidget);
     expect(find.text('Pick a start time'), findsOneWidget);
     expect(find.text('Pick an end time'), findsOneWidget);
@@ -225,11 +315,9 @@ void main() {
       await tester.tap(find.text('1h'));
       await tester.pump();
 
-      // Teacher comes from the dropdown.
-      await tester.tap(find.byKey(const Key('live_class_teacher_dropdown')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Ravi Kumar').last);
-      await tester.pumpAndSettle();
+      // Subject and teacher both come from dropdowns.
+      await _pickFromDropdown(tester, 'live_class_subject_dropdown', 'Mechanics');
+      await _pickFromDropdown(tester, 'live_class_teacher_dropdown', 'Ravi Kumar');
 
       await tester.tap(find.byKey(const Key('live_class_save_button')));
       await tester.pump();
@@ -244,6 +332,14 @@ void main() {
       expect(saved.endDateTime.isAfter(saved.startDateTime), isTrue);
       expect(saved.startDateTime.hour, 21);
       expect(saved.endDateTime.hour, 22);
+
+      // The app needs the ids, not just the labels: it prints the subject
+      // on the class card and matches teacherId against the uid a
+      // participant joined the live room under.
+      expect(saved.subject, 'Mechanics');
+      expect(saved.subjectCode, 'MECH');
+      expect(saved.teacherName, 'Ravi Kumar');
+      expect(saved.teacherId, 'ravi');
     });
 
     testWidgets('an end at or before the start is rejected', (tester) async {
@@ -329,6 +425,17 @@ void main() {
       expect(effective.decoration ?? TextDecoration.none, TextDecoration.none);
     }
   });
+}
+
+Future<void> _pickFromDropdown(
+    WidgetTester tester, String key, String value) async {
+  final Finder dropdown = find.byKey(Key(key));
+  await tester.ensureVisible(dropdown);
+  await tester.pumpAndSettle();
+  await tester.tap(dropdown);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(value).last);
+  await tester.pumpAndSettle();
 }
 
 /// Drives the real time picker. At these widths the form opens it in typed

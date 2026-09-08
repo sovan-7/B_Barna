@@ -62,7 +62,10 @@ void main() {
     repo = MockLiveClassRepo();
     when(() => repo.getLiveClassList()).thenAnswer((_) async =>
         [_model('a', DateTime.now().add(const Duration(days: 1)))]);
-    when(() => repo.getTeacherNames()).thenAnswer((_) async => ['T']);
+    when(() => repo.getTeachers()).thenAnswer(
+        (_) async => [const LiveClassTeacher(id: 't1', name: 'T')]);
+    when(() => repo.getSubjects()).thenAnswer(
+        (_) async => [const LiveClassSubject(code: 'MECH', name: 'Mechanics')]);
   });
 
   // The regression this file exists for: a refresh that lands mid-build used

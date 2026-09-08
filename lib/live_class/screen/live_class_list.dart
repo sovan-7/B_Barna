@@ -62,6 +62,10 @@ class _LiveClassListState extends State<LiveClassList> {
             children: [
               _header(liveClassViewModel),
               const SizedBox(height: LiveClassTheme.gapLg),
+              if (liveClassViewModel.classesNeedingAppSync.isNotEmpty) ...[
+                _appSyncBanner(liveClassViewModel),
+                const SizedBox(height: LiveClassTheme.gapMd),
+              ],
               _toolbar(liveClassViewModel),
               const SizedBox(height: LiveClassTheme.gapMd),
               Expanded(
@@ -79,6 +83,92 @@ class _LiveClassListState extends State<LiveClassList> {
           ),
         );
       }),
+    );
+  }
+
+  /// Says which classes the student app cannot see, and fixes them.
+  ///
+  /// Classes saved before this panel started writing the app's field names
+  /// reach the app with `startTime: 0`, which files them under Past no
+  /// matter when they are scheduled — so a class reads Upcoming here and
+  /// Past there at the same moment. Nothing on either screen said why, and
+  /// the only tell was that the class was in the wrong list on a device the
+  /// admin was not holding.
+  Widget _appSyncBanner(LiveClassViewModel liveClassViewModel) {
+    final int count = liveClassViewModel.classesNeedingAppSync.length;
+    final bool busy = liveClassViewModel.isSyncingForApp;
+
+    return Container(
+      key: const Key('live_class_app_sync_banner'),
+      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFB54708).withValues(alpha: .06),
+        borderRadius: BorderRadius.circular(LiveClassTheme.radiusMd),
+        border:
+            Border.all(color: const Color(0xFFB54708).withValues(alpha: .28)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.sync_problem_outlined,
+              size: 17, color: Color(0xFFB54708)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  count == 1
+                      ? "1 class is not showing correctly in the app"
+                      : "$count classes are not showing correctly in the app",
+                  style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      color: LiveClassTheme.ink),
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  "They were saved before the app's schedule format was "
+                  "settled, so students see them under Past whenever they "
+                  "are scheduled. Updating rewrites them — set a Subject on "
+                  "each afterwards, as older classes have none.",
+                  style: TextStyle(
+                      fontSize: 12, height: 1.4, color: LiveClassTheme.inkMuted),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: LiveClassTheme.gapMd),
+          ElevatedButton(
+            key: const Key('live_class_app_sync_button'),
+            onPressed:
+                busy ? null : () => liveClassViewModel.syncClassesForApp(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: LiveClassTheme.ink,
+              disabledBackgroundColor:
+                  LiveClassTheme.ink.withValues(alpha: .55),
+              foregroundColor: Colors.white,
+              disabledForegroundColor: Colors.white,
+              elevation: 0,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(LiveClassTheme.radiusSm)),
+            ),
+            child: busy
+                ? const SizedBox(
+                    height: 15,
+                    width: 15,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
+                  )
+                : const Text("Update them",
+                    style: TextStyle(
+                        fontSize: 12.5, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
     );
   }
 

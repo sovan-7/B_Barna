@@ -46,7 +46,8 @@ class LiveClassViewModel with ChangeNotifier {
 
   List<LiveClassModel> liveClassList = [];
   List<LiveClassModel> copyLiveClassList = [];
-  List<String> teacherNames = [];
+  List<LiveClassTeacher> teachers = [];
+  List<LiveClassSubject> subjects = [];
 
   /// Drives the inline spinner/empty state on [LiveClassList]. This module
   /// deliberately uses an in-place loading flag rather than the global
@@ -76,13 +77,65 @@ class LiveClassViewModel with ChangeNotifier {
     }
   }
 
-  Future<void> getTeacherNames() async {
+  Future<void> getTeachers() async {
     try {
-      teacherNames = await _liveClassRepo.getTeacherNames();
+      teachers = await _liveClassRepo.getTeachers();
     } catch (e) {
-      teacherNames = [];
+      teachers = [];
     }
     notifyListeners();
+  }
+
+  Future<void> getSubjects() async {
+    try {
+      subjects = await _liveClassRepo.getSubjects();
+    } catch (e) {
+      subjects = [];
+    }
+    notifyListeners();
+  }
+
+  /// Classes the student app cannot read yet. Empty is the healthy state.
+  List<LiveClassModel> get classesNeedingAppSync =>
+      liveClassList.where((liveClass) => liveClass.needsAppSync).toList();
+
+  /// True while [syncClassesForApp] is running.
+  bool isSyncingForApp = false;
+
+  /// Rewrites every class still in the old shape so the student app can read
+  /// it.
+  ///
+  /// One at a time rather than a batch: a class that fails should not take
+  /// the others with it, and the count reported afterwards is then the count
+  /// that actually landed. Returns how many were rewritten.
+  Future<int> syncClassesForApp() async {
+    final List<LiveClassModel> pending = classesNeedingAppSync;
+    if (pending.isEmpty || isSyncingForApp) return 0;
+
+    isSyncingForApp = true;
+    notifyListeners();
+
+    int migrated = 0;
+    for (final LiveClassModel liveClass in pending) {
+      try {
+        await _liveClassRepo.migrateToAppSchema(liveClass);
+        liveClass.needsAppSync = false;
+        migrated++;
+      } catch (e) {
+        // Keep going; the banner stays up for whatever is left.
+      }
+    }
+
+    isSyncingForApp = false;
+    notifyListeners();
+
+    if (migrated < pending.length) {
+      Helper.showSnackBarMessage(
+          msg: "Updated $migrated of ${pending.length} classes — try again "
+              "for the rest",
+          isSuccess: false);
+    }
+    return migrated;
   }
 
   void selectStatus(LiveClassStatus status) {

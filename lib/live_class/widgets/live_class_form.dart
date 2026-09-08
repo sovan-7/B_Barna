@@ -31,7 +31,7 @@ class LiveClassForm extends StatefulWidget {
 }
 
 /// The fields that can carry an inline error.
-enum _Field { title, teacher, date, start, end }
+enum _Field { title, subject, teacher, date, start, end }
 
 class _LiveClassFormState extends State<LiveClassForm> {
   final TextEditingController titleController = TextEditingController();
@@ -41,6 +41,15 @@ class _LiveClassFormState extends State<LiveClassForm> {
   final GlobalKey<ScaffoldState> key = GlobalKey();
 
   String? _selectedTeacher;
+
+  /// The picked teacher's document id, resolved from the name the dropdown
+  /// is keyed on. Empty when the name was typed by hand, or belongs to a
+  /// teacher who has since been removed — the student app then simply
+  /// marks nobody as the teacher rather than marking the wrong person.
+  String _selectedTeacherId = "";
+
+  String? _selectedSubject;
+  String _selectedSubjectCode = "";
 
   /// A class runs within a single day, so the schedule is one date plus two
   /// times rather than two independent date-times. Holding it that way is
@@ -80,6 +89,9 @@ class _LiveClassFormState extends State<LiveClassForm> {
       youtubeLinkController.text = existing.youtubeLink;
       teacherNameController.text = existing.teacherName;
       _selectedTeacher = existing.teacherName;
+      _selectedTeacherId = existing.teacherId;
+      _selectedSubject = existing.subject.isEmpty ? null : existing.subject;
+      _selectedSubjectCode = existing.subjectCode;
       _classDate = _dateOnly(existing.startDateTime);
       _startTime = TimeOfDay.fromDateTime(existing.startDateTime);
       _endTime = TimeOfDay.fromDateTime(existing.endDateTime);
@@ -94,7 +106,10 @@ class _LiveClassFormState extends State<LiveClassForm> {
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      Provider.of<LiveClassViewModel>(context, listen: false).getTeacherNames();
+      final LiveClassViewModel liveClassViewModel =
+          Provider.of<LiveClassViewModel>(context, listen: false);
+      liveClassViewModel.getTeachers();
+      liveClassViewModel.getSubjects();
     });
   }
 
@@ -114,6 +129,12 @@ class _LiveClassFormState extends State<LiveClassForm> {
     final Map<_Field, String> errors = <_Field, String>{};
     if (titleController.text.trim().isEmpty) {
       errors[_Field.title] = "Give the class a title";
+    }
+    if ((_selectedSubject ?? "").trim().isEmpty) {
+      // Required, not optional: the app prints the subject on the class
+      // card three times over, so a class saved without one reaches
+      // students with blank lines where the subject belongs.
+      errors[_Field.subject] = "Choose the subject this class is for";
     }
     if ((_selectedTeacher ?? teacherNameController.text).trim().isEmpty) {
       errors[_Field.teacher] = "Choose or type a teacher";
@@ -176,6 +197,9 @@ class _LiveClassFormState extends State<LiveClassForm> {
       description: descriptionController.text,
       youtubeLink: youtubeLinkController.text,
       teacherName: (_selectedTeacher ?? teacherNameController.text).trim(),
+      teacherId: _selectedTeacherId,
+      subject: _selectedSubject ?? "",
+      subjectCode: _selectedSubjectCode,
       startDateTime: _startDateTime!,
       endDateTime: _endDateTime!,
     );
@@ -412,6 +436,8 @@ class _LiveClassFormState extends State<LiveClassForm> {
                           onChanged: _revalidate,
                         ),
                         const SizedBox(height: LiveClassTheme.gapMd),
+                        _subjectField(liveClassViewModel),
+                        const SizedBox(height: LiveClassTheme.gapMd),
                         _textField(
                           label: "Description",
                           hint: "What will this class cover? (optional)",
@@ -485,6 +511,9 @@ class _LiveClassFormState extends State<LiveClassForm> {
         description: descriptionController.text,
         youtubeLink: youtubeLinkController.text,
         teacherName: _selectedTeacher ?? "",
+        teacherId: _selectedTeacherId,
+        subject: _selectedSubject ?? "",
+        subjectCode: _selectedSubjectCode,
         startDateTime: _startDateTime!,
         endDateTime: _endDateTime!,
       );
@@ -588,11 +617,107 @@ class _LiveClassFormState extends State<LiveClassForm> {
     );
   }
 
+  /// Dropdown of subjects from the `subject` collection.
+  ///
+  /// The student app draws this name on the class card — on the thumbnail,
+  /// in the title, and on its own line underneath — so a class needs one
+  /// before it is worth showing.
+  Widget _subjectField(LiveClassViewModel liveClassViewModel) {
+    final List<String> names =
+        liveClassViewModel.subjects.map((s) => s.name).toList();
+
+    // An existing class may name a subject that has since been renamed or
+    // removed — keep that value selectable so editing doesn't drop it.
+    final String? current = _selectedSubject;
+    if (current != null && current.isNotEmpty && !names.contains(current)) {
+      names.insert(0, current);
+    }
+
+    final String? error = _errors[_Field.subject];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Subject", style: LiveClassTheme.fieldLabel),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: LiveClassTheme.surface,
+            borderRadius: BorderRadius.circular(LiveClassTheme.radiusMd),
+            border: Border.all(
+                color: error != null
+                    ? LiveClassTheme.danger
+                    : LiveClassTheme.hairline),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              key: const Key('live_class_subject_dropdown'),
+              value: _selectedSubject,
+              isExpanded: true,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              borderRadius: BorderRadius.circular(LiveClassTheme.radiusMd),
+              icon: const Icon(Icons.keyboard_arrow_down,
+                  size: 20, color: LiveClassTheme.inkFaint),
+              hint: Text(
+                  names.isEmpty ? "No subjects found" : "Select a subject",
+                  style: const TextStyle(
+                      fontSize: 13, color: LiveClassTheme.inkFaint)),
+              // Same reason as the teacher dropdown below: DropdownButton
+              // takes `style` verbatim, and inheriting it from above the
+              // Scaffold's Material drags in WidgetsApp's yellow
+              // double-underline error style.
+              style: (Theme.of(context).textTheme.bodyMedium ??
+                      const TextStyle())
+                  .copyWith(
+                fontSize: 13.5,
+                color: LiveClassTheme.ink,
+                decoration: TextDecoration.none,
+              ),
+              onChanged: (String? newValue) {
+                setState(() {
+                  _selectedSubject = newValue;
+                  _selectedSubjectCode = liveClassViewModel.subjects
+                          .where((s) => s.name == newValue)
+                          .map((s) => s.code)
+                          .firstOrNull ??
+                      "";
+                });
+                _revalidate();
+              },
+              items: names
+                  .map((String value) => DropdownMenuItem<String>(
+                        value: value,
+                        child: Row(
+                          children: [
+                            const Icon(Icons.library_books_outlined,
+                                size: 15, color: LiveClassTheme.inkFaint),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(value,
+                                  overflow: TextOverflow.ellipsis),
+                            ),
+                          ],
+                        ),
+                      ))
+                  .toList(),
+            ),
+          ),
+        ),
+        if (error != null) ...[
+          const SizedBox(height: 5),
+          Text(error, style: LiveClassTheme.errorText),
+        ],
+      ],
+    );
+  }
+
   /// Dropdown of names from the `teacher` collection. Falls back to a plain
   /// text field only when that collection is empty (or unreachable), so the
   /// form is never a dead end.
   Widget _teacherField(LiveClassViewModel liveClassViewModel) {
-    final List<String> names = [...liveClassViewModel.teacherNames];
+    final List<String> names =
+        liveClassViewModel.teachers.map((t) => t.name).toList();
     // An existing class may name a teacher who has since been removed —
     // keep that value selectable so editing doesn't silently drop it.
     final String? current = _selectedTeacher;
@@ -675,6 +800,15 @@ class _LiveClassFormState extends State<LiveClassForm> {
                 setState(() {
                   _selectedTeacher = newValue;
                   teacherNameController.text = newValue ?? "";
+                  // Resolved here rather than at save: a name kept from a
+                  // deleted teacher has no id, and pairing it with the
+                  // previous pick's id would badge the wrong person in the
+                  // app's live room.
+                  _selectedTeacherId = liveClassViewModel.teachers
+                          .where((t) => t.name == newValue)
+                          .map((t) => t.id)
+                          .firstOrNull ??
+                      "";
                 });
                 _revalidate();
               },

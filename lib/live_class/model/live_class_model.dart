@@ -25,6 +25,26 @@ class LiveClassModel {
   String description = stringDefault;
   String youtubeLink = stringDefault;
   String teacherName = stringDefault;
+
+  /// The teacher's document id in the `teacher` collection.
+  ///
+  /// The student app compares this against the uid a participant joined the
+  /// live room under, to mark who is teaching in chat and the people list.
+  /// Empty when the name was typed by hand rather than picked.
+  ///
+  /// Defaults to "" and not [stringDefault]: these three reach the student
+  /// app verbatim, and "NA" would be drawn on the card as the literal text
+  /// "NA" where an empty string draws nothing.
+  String teacherId = "";
+
+  /// The subject's display name, shown on the class card in the app.
+  String subject = "";
+
+  /// The subject's `subject_code`. Stored under `subjectId` because that is
+  /// the key the app reads, but it holds the code — the join key every other
+  /// collection in this project uses (`subject_code`, `subjectCodeList`).
+  String subjectCode = "";
+
   DateTime startDateTime;
   DateTime endDateTime;
 
@@ -34,6 +54,20 @@ class LiveClassModel {
   DateTime? createdAt;
   DateTime? updatedAt;
 
+  /// True for a document still written in this panel's original shape —
+  /// `startDateTime`/`endDateTime` Timestamps rather than the `startTime`/
+  /// `endTime` millis the student app reads.
+  ///
+  /// The panel itself reads such a class correctly (see the fallbacks in
+  /// [LiveClassModel.fromDocumentSnapshot]) but the app does not: it gets
+  /// `startTime: 0`, which files the class under Past however far in the
+  /// future it is scheduled. That is why a class can read Upcoming here and
+  /// Past there at the same moment.
+  ///
+  /// Set from the raw document, so it says what is *stored*, not what was
+  /// parsed. Never written to Firestore.
+  bool needsAppSync = false;
+
   LiveClassModel({
     required this.docId ,
     required this.title,
@@ -42,6 +76,9 @@ class LiveClassModel {
     required this.teacherName,
     required this.startDateTime,
     required this.endDateTime,
+    this.teacherId = "",
+    this.subject = "",
+    this.subjectCode = "",
     this.createdAt,
     this.updatedAt,
   });
@@ -49,30 +86,60 @@ class LiveClassModel {
   /// Only the caller-editable fields. `createdAt`/`updatedAt` are owned by
   /// [LiveClassRepo] so the server clock — not the admin's browser — decides
   /// them.
+  ///
+  /// **These key names are the student app's, not this panel's.** The app
+  /// reads `live_classes` directly with its own `LiveClassModel.fromMap`,
+  /// and it is the shipped side — a rename here reaches every student the
+  /// moment this panel deploys, where a rename there only reaches whoever
+  /// updates. So the panel writes what the app already reads:
+  ///
+  ///   `subtitle` (not description), `youtubeVideoLink` (not youtubeLink),
+  ///   `subjectId`, `teacherId`, and `startTime`/`endTime` as epoch
+  ///   milliseconds (not `startDateTime`/`endDateTime` Timestamps).
+  ///
+  /// Before this, none of those lined up: a class saved here reached the app
+  /// with `startTime: 0`, which put it in the Past bucket the instant it was
+  /// created, so it never appeared under Live or Upcoming at all.
   Map<String, dynamic> toMap() {
     return {
       "title": title.trim(),
-      "description": description.trim(),
-      "youtubeLink": youtubeLink.trim(),
+      "subtitle": description.trim(),
+      "subject": subject.trim(),
+      "subjectId": subjectCode.trim(),
       "teacherName": teacherName.trim(),
-      "startDateTime": Timestamp.fromDate(startDateTime),
-      "endDateTime": Timestamp.fromDate(endDateTime),
+      "teacherId": teacherId.trim(),
+      "youtubeVideoLink": youtubeLink.trim(),
+      "startTime": startDateTime.millisecondsSinceEpoch,
+      "endTime": endDateTime.millisecondsSinceEpoch,
     };
   }
 
+  /// Reads the app's key names, falling back to the ones this panel used to
+  /// write. Classes created before the schema was aligned keep opening and
+  /// listing correctly here; re-saving one rewrites it in the new shape.
   LiveClassModel.fromDocumentSnapshot(
       DocumentSnapshot<Map<String, dynamic>> doc)
       : docId = doc.id,
         title = doc.data()?["title"] ?? stringDefault,
-        description = doc.data()?["description"] ?? stringDefault,
-        youtubeLink = doc.data()?["youtubeLink"] ?? stringDefault,
+        description = doc.data()?["subtitle"] ??
+            doc.data()?["description"] ??
+            stringDefault,
+        youtubeLink = doc.data()?["youtubeVideoLink"] ??
+            doc.data()?["youtubeLink"] ??
+            stringDefault,
         teacherName = doc.data()?["teacherName"] ?? stringDefault,
-        startDateTime = _toDateTime(doc.data()?["startDateTime"]) ??
+        teacherId = doc.data()?["teacherId"] ?? "",
+        subject = doc.data()?["subject"] ?? "",
+        subjectCode = doc.data()?["subjectId"] ?? "",
+        startDateTime = _toDateTime(doc.data()?["startTime"]) ??
+            _toDateTime(doc.data()?["startDateTime"]) ??
             DateTime.fromMillisecondsSinceEpoch(0),
-        endDateTime = _toDateTime(doc.data()?["endDateTime"]) ??
+        endDateTime = _toDateTime(doc.data()?["endTime"]) ??
+            _toDateTime(doc.data()?["endDateTime"]) ??
             DateTime.fromMillisecondsSinceEpoch(0),
         createdAt = _toDateTime(doc.data()?["createdAt"]),
-        updatedAt = _toDateTime(doc.data()?["updatedAt"]);
+        updatedAt = _toDateTime(doc.data()?["updatedAt"]),
+        needsAppSync = doc.data()?["startTime"] == null;
 
   /// Tolerates the three shapes a date can arrive in: a Firestore
   /// [Timestamp] (what we write), an int of millis (what a hand-edited or
