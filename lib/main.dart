@@ -14,6 +14,7 @@ import 'package:bbarna/subject/viewModel/subject_view_model.dart';
 import 'package:bbarna/teacher/viewModel/teacher_view_model.dart';
 import 'package:bbarna/topic/viewModel/topic_view_model.dart';
 import 'package:bbarna/units/viewModel/unit_view_model.dart';
+import 'package:bbarna/utils/session.dart';
 import 'package:bbarna/utils/size_config.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -106,7 +107,7 @@ class MyApp extends StatelessWidget {
         navigatorKey: navigatorKey,
         key: scaffoldKey,
         title: "BBARNA",
-        home: sharedPreferences.getString("admin_id") != null
+        home: Session.isSignedIn
             ? const Sidebar(sidebarIndex: 0)
             : const LoginScreen());
   }

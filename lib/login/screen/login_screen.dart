@@ -188,7 +188,8 @@ class _LoginScreenState extends State<LoginScreen> {
           .get();
       if (querySnapshot.docs.isNotEmpty) {
         final data = querySnapshot.docs.first.data() as Map<String, dynamic>;
-        sharedPreferences.setString("admin_id", querySnapshot.docs.first.id);
+        sharedPreferences.setString(
+            adminIdPrefsKey, querySnapshot.docs.first.id);
         sharedPreferences.setStringList(moduleAccessPrefsKey,
             List<String>.from(data['module_access'] ?? []));
         return querySnapshot.docs.first.id;

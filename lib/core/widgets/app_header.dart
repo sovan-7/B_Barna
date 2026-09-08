@@ -1,7 +1,11 @@
 // ignore_for_file: must_be_immutable
 
+import 'package:bbarna/core/widgets/remove_alert.dart';
+import 'package:bbarna/login/screen/login_screen.dart';
 import 'package:bbarna/resources/app_colors.dart';
 import 'package:bbarna/resources/app_tokens.dart';
+import 'package:bbarna/resources/constant.dart';
+import 'package:bbarna/utils/session.dart';
 import 'package:flutter/material.dart';
 
 /// The top bar of every page.
@@ -107,12 +111,11 @@ class AppHeader extends StatelessWidget {
             ),
           ),
           _iconButton(
+            key: const Key('app_header_sign_out'),
             icon: Icons.logout_rounded,
             tooltip: "Sign out",
             color: AppColorsInApp.colorPrimary,
-            // Unchanged: this icon has never had a handler. Wiring it up is
-            // a behaviour change, not a visual one, so it stays inert here.
-            onTap: null,
+            onTap: () => _confirmSignOut(context),
           ),
         ],
       ),
@@ -124,10 +127,12 @@ class AppHeader extends StatelessWidget {
     required String tooltip,
     required Color color,
     required VoidCallback? onTap,
+    Key? key,
   }) {
     return Tooltip(
       message: tooltip,
       child: InkWell(
+        key: key,
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppTokens.radiusSm),
         child: Padding(
@@ -135,6 +140,36 @@ class AppHeader extends StatelessWidget {
           child: Icon(icon, size: 20, color: color),
         ),
       ),
+    );
+  }
+
+  /// Asks first, because this button sits one tap away on every page —
+  /// including halfway through an add/edit form, where signing out throws
+  /// the unsaved work away.
+  ///
+  /// Uses the same [RemoveAlert] every destructive action in the app goes
+  /// through, so the confirmation looks the same wherever it appears.
+  void _confirmSignOut(BuildContext context) {
+    // Captured before the alert: the header's own element is gone by the
+    // time the route is replaced.
+    final NavigatorState navigator = Navigator.of(context, rootNavigator: true);
+
+    RemoveAlert.showRemoveAlert(
+      title: "Sign out",
+      description: "Are you sure want to sign out ?",
+      onPressYes: () async {
+        // RemoveAlert never closes itself.
+        Navigator.pop(navigatorKey.currentContext!);
+        await Session.signOut();
+
+        // pushAndRemoveUntil, not push: everything the signed-out admin was
+        // looking at has to come off the stack, or the browser's back
+        // button walks straight back into it.
+        await navigator.pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          (Route<dynamic> route) => false,
+        );
+      },
     );
   }
 }

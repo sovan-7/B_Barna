@@ -1,156 +1,218 @@
 import 'dart:async';
-import 'package:bbarna/core/widgets/loader_dialog.dart';
-import 'package:bbarna/resources/constant.dart';
+
 import 'package:bbarna/subject/model/subject_model.dart';
 import 'package:bbarna/topic/model/topic_model.dart';
 import 'package:bbarna/topic/repo/topic_repo.dart';
 import 'package:bbarna/units/model/unit_model.dart';
 import 'package:bbarna/utils/helper.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 class TopicViewModel with ChangeNotifier {
-  final TopicRepo _topicRepo = TopicRepo();
+  // Constructor-injectable so the paging, search and save logic can be
+  // exercised without real Firebase.
+  final TopicRepo _topicRepo;
+  TopicViewModel({TopicRepo? topicRepo}) : _topicRepo = topicRepo ?? TopicRepo();
+
   List<TopicModel> topicList = [];
-  List<TopicModel> copyTopicList = [];
   List<SubjectModel> subjectList = [];
   List<UnitModel> unitList = [];
-  Timer? _debounce;
-  int limit = 50;
+
+  /// How many topics the collection holds in total, so the list can say
+  /// "showing 50 of 320" rather than just "50".
   int topicLength = 0;
-  List<QueryDocumentSnapshot> docList = [];
-  late DocumentSnapshot<Map<String, dynamic>> lastDoc;
-  Future<DocumentReference<Map<String, dynamic>>> addTopic(
-      TopicModel topicModel) async {
-    return await _topicRepo.addTopic(topicModel);
+  final int limit = 50;
+
+  /// True while the first page is in flight — drives the skeletons. The
+  /// module used to reach for the global `LoaderDialogs` overlay, which
+  /// pushes a route, from `initState` while the shell was still building.
+  bool isLoading = true;
+
+  /// True while a further page is in flight, so "Load more" can show a
+  /// spinner without blanking the rows already on screen.
+  bool isLoadingMore = false;
+
+  /// Set while a search is showing, because searching queries the server
+  /// separately and paging does not apply to the result.
+  bool isSearching = false;
+
+  Timer? _debounce;
+  bool _disposed = false;
+
+  bool get hasMore => !isSearching && topicList.length < topicLength;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _disposed = true;
+    super.dispose();
   }
 
-  Future updateTopic(TopicModel topicModel, String docId) async {
-    LoaderDialogs.showLoadingDialog();
-
-    await _topicRepo.updateTopic(topicModel, docId).whenComplete(() {
-      Navigator.pop(navigatorKey.currentContext!);
-    });
-  }
-
-  Future deleteTopic(String docId) async {
-    topicList.removeWhere((element) => element.docId == docId);
-    await _topicRepo.deleteTopic(docId).whenComplete(() {
-      Helper.showSnackBarMessage(
-          msg: "Topic deleted successfully", isSuccess: false);
-    });
-    getTopicListLength();
-  }
-
-  Future getFirstTopicList() async {
-    LoaderDialogs.showLoadingDialog();
-    QuerySnapshot<Map<String, dynamic>> snapshot =
-        await _topicRepo.getFirstTopicList(limit);
-    topicList.clear();
-    for (int i = 0; i < snapshot.docs.length; i++) {
-      DocumentSnapshot<Map<String, dynamic>> docData =
-          snapshot.docs[i] as DocumentSnapshot<Map<String, dynamic>>;
-      if (i == snapshot.docs.length - 1) {
-        lastDoc = snapshot.docs[i] as DocumentSnapshot<Map<String, dynamic>>;
-      }
-      topicList.add(TopicModel.fromDocumentSnapshot(docData));
+  /// Safe to call from any point in the frame — [TopicList] is mounted from
+  /// `Sidebar.screenList[selectedIndex]` *during* a build.
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (_disposed) return;
+        super.notifyListeners();
+      });
+      return;
     }
-    copyTopicList = topicList;
-    docList.addAll(snapshot.docs);
-    Navigator.pop(navigatorKey.currentContext!);
+    super.notifyListeners();
+  }
+
+  /// Loads the first page and the total count together.
+  Future<void> getFirstTopicList() async {
+    isLoading = true;
+    isSearching = false;
     notifyListeners();
-  }
-
-  Future getNextTopicList() async {
-    LoaderDialogs.showLoadingDialog();
-
-    QuerySnapshot<Map<String, dynamic>> snapshot =
-        await _topicRepo.getNextTopicList(limit, lastDoc);
-    for (int i = 0; i < snapshot.docs.length; i++) {
-      DocumentSnapshot<Map<String, dynamic>> docData =
-          snapshot.docs[i] as DocumentSnapshot<Map<String, dynamic>>;
-      if (i == snapshot.docs.length - 1) {
-        lastDoc = snapshot.docs[i] as DocumentSnapshot<Map<String, dynamic>>;
-      }
-      topicList.add(TopicModel.fromDocumentSnapshot(docData));
-    }
-    Navigator.pop(navigatorKey.currentContext!);
-    copyTopicList = topicList;
-    docList.addAll(snapshot.docs);
-    notifyListeners();
-  }
-
-  Future getSubjectList({required String courseCode}) async {
-    LoaderDialogs.showLoadingDialog();
-    subjectList = await _topicRepo
-        .getSubjectList(courseCode: courseCode)
-        .whenComplete(() => Navigator.pop(navigatorKey.currentContext!));
-    notifyListeners();
-  }
-
-  Future getUnitList({required String subjectCode}) async {
-    LoaderDialogs.showLoadingDialog();
-    unitList = await _topicRepo
-        .getUnitList(subjectCode: subjectCode)
-        .whenComplete(() => Navigator.pop(navigatorKey.currentContext!));
-    notifyListeners();
-  }
-
-  Future<void> searchTopic({required String searchText}) async {
-    if (_debounce?.isActive ?? false) _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 500), () async {
-      if (searchText.isEmpty) {
-        topicList = copyTopicList;
-        notifyListeners();
-      } else {
-        try {
-          //  LoaderDialogs.showLoadingDialog();
-          topicList = await _topicRepo.searchTopic(searchText);
-          notifyListeners();
-          //Navigator.pop(navigatorKey.currentContext!);
-        } catch (e) {
-          Navigator.pop(navigatorKey.currentContext!);
-          Helper.showSnackBarMessage(
-              msg: "Error while fetching data", isSuccess: false);
-        }
-      }
-    });
-  }
-
-  void removeTopicFromLast() {
-    int exesData = docList.length % limit;
-    if (exesData > 0) {
-      docList.removeRange((docList.length - exesData), docList.length);
-      topicList.removeRange((docList.length - exesData), docList.length);
-      lastDoc = docList.last as DocumentSnapshot<Map<String, dynamic>>;
-      copyTopicList = topicList;
-    } else {
-      if ((docList.length - limit) >= limit) {
-        docList.removeRange(docList.length - limit, docList.length);
-        topicList.removeRange(topicList.length - limit, topicList.length);
-        lastDoc = docList.last as DocumentSnapshot<Map<String, dynamic>>;
-        copyTopicList = topicList;
-      }
-    }
-    notifyListeners();
-  }
-
-  Future<void> getTopicListLength() async {
-    topicLength = await _topicRepo.getTopicListLength();
-    notifyListeners();
-  }
-
-  Future<bool> isVideoExists(String videoCode) async {
     try {
-      QuerySnapshot querySnapshot = await FirebaseFirestore.instance
-          .collection(video)
-          .where('video_code', isEqualTo: videoCode)
-          .limit(1)
-          .get();
-      return querySnapshot.docs.isNotEmpty;
+      topicList = await _topicRepo.getFirstTopicList(limit);
+      topicLength = await _topicRepo.getTopicListLength();
     } catch (e) {
+      Helper.showSnackBarMessage(
+          msg: "Error while fetching topics", isSuccess: false);
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Appends the next page. This is what the old "Next" button did too —
+  /// it grew one list rather than turning a page, which is why its
+  /// "Previous" counterpart could only ever chop rows back off the end.
+  Future<void> getNextTopicList() async {
+    if (isLoadingMore || !hasMore) return;
+
+    isLoadingMore = true;
+    notifyListeners();
+    try {
+      topicList.addAll(await _topicRepo.getNextTopicList(limit));
+    } catch (e) {
+      Helper.showSnackBarMessage(
+          msg: "Error while fetching more topics", isSuccess: false);
+    } finally {
+      isLoadingMore = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> getSubjectList({required String courseCode}) async {
+    try {
+      subjectList = await _topicRepo.getSubjectList(courseCode: courseCode);
+    } catch (e) {
+      subjectList = [];
+    }
+    notifyListeners();
+  }
+
+  Future<void> getUnitList({required String subjectCode}) async {
+    try {
+      unitList = await _topicRepo.getUnitList(subjectCode: subjectCode);
+    } catch (e) {
+      unitList = [];
+    }
+    notifyListeners();
+  }
+
+  Future<bool> createTopic(TopicModel topicModel) async {
+    try {
+      await _topicRepo.addTopic(topicModel);
+      return true;
+    } catch (e) {
+      Helper.showSnackBarMessage(
+          msg: "Error while adding the topic", isSuccess: false);
       return false;
     }
   }
-  
+
+  Future<bool> updateTopic(TopicModel topicModel, String docId) async {
+    try {
+      await _topicRepo.updateTopic(topicModel, docId);
+      return true;
+    } catch (e) {
+      Helper.showSnackBarMessage(
+          msg: "Error while updating the topic", isSuccess: false);
+      return false;
+    }
+  }
+
+  /// The row is only dropped from the list once the delete has actually
+  /// gone through. The old version removed it first and reported success
+  /// from `whenComplete`, which runs on failure too — a failed delete left
+  /// the topic in Firestore but gone from the screen.
+  Future<bool> deleteTopic(String docId) async {
+    try {
+      await _topicRepo.deleteTopic(docId);
+      topicList.removeWhere((element) => element.docId == docId);
+      if (topicLength > 0) topicLength--;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      Helper.showSnackBarMessage(
+          msg: "Error while deleting the topic", isSuccess: false);
+      return false;
+    }
+  }
+
+  /// Writes one content array and mirrors it onto the in-memory model, so
+  /// the list's counts are right without refetching the whole page.
+  Future<bool> saveContentCodes(
+      TopicModel topicModel, ContentKind kind, List<String> codes) async {
+    try {
+      await _topicRepo.setContentCodes(topicModel.docId, kind, codes);
+      topicModel.setContentCodes(kind, codes);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      Helper.showSnackBarMessage(
+          msg: "Error while saving ${kind.inlineLabel} codes",
+          isSuccess: false);
+      return false;
+    }
+  }
+
+  /// Which of [codes] actually exist in their own collection, as
+  /// `code -> title`. Anything missing from the result is a code that
+  /// points at nothing.
+  Future<Map<String, String>> resolveContentTitles(
+      ContentKind kind, List<String> codes) async {
+    try {
+      return await _topicRepo.resolveContentTitles(kind, codes);
+    } catch (e) {
+      return <String, String>{};
+    }
+  }
+
+  /// Debounced prefix search on the topic code, run server-side because
+  /// the collection is paged and most of it is not in memory.
+  Future<void> searchTopic({required String searchText}) async {
+    if (_debounce?.isActive ?? false) _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () async {
+      if (searchText.trim().isEmpty) {
+        await getFirstTopicList();
+        return;
+      }
+
+      isSearching = true;
+      isLoading = true;
+      notifyListeners();
+      try {
+        topicList =
+            await _topicRepo.searchTopic(searchText.trim().toUpperCase());
+      } catch (e) {
+        topicList = [];
+        // The old catch popped the current route before showing this —
+        // a failed search took the whole page off the navigator.
+        Helper.showSnackBarMessage(
+            msg: "Error while searching topics", isSuccess: false);
+      } finally {
+        isLoading = false;
+        notifyListeners();
+      }
+    });
+  }
 }

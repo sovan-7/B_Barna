@@ -1,0 +1,140 @@
+import 'package:bbarna/core/widgets/app_header.dart';
+import 'package:bbarna/login/screen/login_screen.dart';
+import 'package:bbarna/resources/constant.dart';
+import 'package:bbarna/utils/session.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// A stand-in for whatever page the admin was on when they hit sign out.
+class _SomePage extends StatelessWidget {
+  const _SomePage();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Column(children: [AppHeader(onTapIcon: () {}, title: "Topics")]),
+    );
+  }
+}
+
+Future<void> _signedIn() async {
+  SharedPreferences.setMockInitialValues(<String, Object>{
+    adminIdPrefsKey: "teacher-doc-1",
+    moduleAccessPrefsKey: <String>["banners", "course"],
+    sidebarCollapsedPrefsKey: true,
+  });
+  sharedPreferences = await SharedPreferences.getInstance();
+}
+
+/// Taps the header's sign-out icon and waits for the alert.
+///
+/// [RemoveAlert] opens behind a 100ms `Future.delayed`, so one settle is
+/// not enough on its own.
+Future<void> _openAlert(WidgetTester tester) async {
+  await tester.tap(find.byKey(const Key('app_header_sign_out')));
+  await tester.pump(const Duration(milliseconds: 150));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _pump(WidgetTester tester) async {
+  tester.view.physicalSize = const Size(1280, 800);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+
+  await tester.pumpWidget(MaterialApp(
+    navigatorKey: navigatorKey,
+    home: const _SomePage(),
+  ));
+  await tester.pump();
+}
+
+void main() {
+  group('Session', () {
+    test('reads the id login stored, and reports nobody once cleared',
+        () async {
+      await _signedIn();
+      expect(Session.adminId, "teacher-doc-1");
+      expect(Session.isSignedIn, isTrue);
+
+      await Session.signOut();
+
+      expect(Session.adminId, isNull);
+      expect(Session.isSignedIn, isFalse);
+    });
+
+    test('takes the previous user\'s module access with it', () async {
+      await _signedIn();
+      await Session.signOut();
+
+      // Left behind, the next sign-in would briefly render the previous
+      // user's sidebar.
+      expect(sharedPreferences.getStringList(moduleAccessPrefsKey), isNull);
+    });
+
+    test('leaves the rail preference alone', () async {
+      await _signedIn();
+      await Session.signOut();
+
+      // Which browser this is, not who is using it.
+      expect(sharedPreferences.getBool(sidebarCollapsedPrefsKey), isTrue);
+    });
+  });
+
+  group('the sign out button', () {
+    testWidgets('asks before doing anything', (tester) async {
+      await _signedIn();
+      await _pump(tester);
+
+      await _openAlert(tester);
+
+      // RemoveAlert uppercases its title.
+      expect(find.text('SIGN OUT'), findsOneWidget);
+      expect(find.text('Are you sure want to sign out ?'), findsOneWidget);
+      // Nothing has happened yet.
+      expect(Session.isSignedIn, isTrue);
+    });
+
+    testWidgets('cancelling leaves the session and the page as they were',
+        (tester) async {
+      await _signedIn();
+      await _pump(tester);
+
+      await _openAlert(tester);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('SIGN OUT'), findsNothing);
+      expect(Session.isSignedIn, isTrue);
+      expect(find.byType(_SomePage), findsOneWidget);
+    });
+
+    testWidgets('confirming clears the session and lands on the login screen',
+        (tester) async {
+      await _signedIn();
+      await _pump(tester);
+
+      await _openAlert(tester);
+      await tester.tap(find.text('Yes'));
+      await tester.pumpAndSettle();
+
+      expect(Session.isSignedIn, isFalse);
+      expect(find.byType(LoginScreen), findsOneWidget);
+      expect(find.byType(_SomePage), findsNothing);
+    });
+
+    testWidgets('nothing is left on the stack to go back to', (tester) async {
+      await _signedIn();
+      await _pump(tester);
+
+      await _openAlert(tester);
+      await tester.tap(find.text('Yes'));
+      await tester.pumpAndSettle();
+
+      // pushAndRemoveUntil, not push: otherwise the browser's back button
+      // walks straight back into the signed-out admin's pages.
+      expect(navigatorKey.currentState!.canPop(), isFalse);
+    });
+  });
+}

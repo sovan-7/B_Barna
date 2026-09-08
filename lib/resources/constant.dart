@@ -80,6 +80,12 @@ const List<String> moduleDisplayList = [
 const String roleAdmin = "admin";
 const String roleSubadmin = "subadmin";
 
+/// SharedPreferences key the signed-in teacher's document id is stored
+/// under at login. Its presence *is* the session: `main` sends the app
+/// straight to [Sidebar] when it is set, and to [LoginScreen] when it is
+/// not, so clearing it is what signing out means.
+const String adminIdPrefsKey = "admin_id";
+
 /// SharedPreferences key the logged-in teacher's module_access list is
 /// stored under at login — [Sidebar] and [ExtraSideBar] read it back to
 /// restrict which modules they render.
