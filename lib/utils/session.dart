@@ -1,3 +1,4 @@
+import 'package:bbarna/login/model/login_result.dart';
 import 'package:bbarna/resources/constant.dart';
 
 /// The signed-in admin's session.
@@ -23,6 +24,22 @@ class Session {
   }
 
   static bool get isSignedIn => adminId != null;
+
+  /// Starts a session for the user [result] identifies.
+  ///
+  /// The counterpart to [signOut] — both keys are written here, so neither
+  /// can be forgotten on the way in or left behind on the way out. The
+  /// login screen used to write them itself, inline in a button callback.
+  static Future<void> signIn(LoginResult result) async {
+    try {
+      await sharedPreferences.setString(adminIdPrefsKey, result.adminId);
+      await sharedPreferences.setStringList(
+          moduleAccessPrefsKey, result.moduleAccess);
+    } catch (_) {
+      // No store to write to. The sign-in still stands for this session;
+      // it just will not survive a reload.
+    }
+  }
 
   /// Clears the session.
   ///

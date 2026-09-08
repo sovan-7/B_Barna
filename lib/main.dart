@@ -6,6 +6,7 @@ import 'package:bbarna/documents/pdf/viewModel/pdf_view_model.dart';
 import 'package:bbarna/documents/video/viewModel/video_view_model.dart';
 import 'package:bbarna/live_class/viewModel/live_class_view_model.dart';
 import 'package:bbarna/login/screen/login_screen.dart';
+import 'package:bbarna/login/viewModel/login_view_model.dart';
 import 'package:bbarna/question/question_viewmodel/question_viewmodel.dart';
 import 'package:bbarna/quiz/viewModel/quiz_view_model.dart';
 import 'package:bbarna/resources/constant.dart';
@@ -57,6 +58,7 @@ void main() async {
       ChangeNotifierProvider(create: (_) => StudentViewModel()),
       ChangeNotifierProvider(create: (_) => TeacherViewModel()),
       ChangeNotifierProvider(create: (_) => LiveClassViewModel()),
+      ChangeNotifierProvider(create: (_) => LoginViewModel()),
     ],
     child: const MyApp(),
   ));

@@ -406,9 +406,9 @@ class _CourseFormState extends State<CourseForm> {
     );
   }
 
-  /// A full-width bordered input. The shared [CustomTextField] is locked to
-  /// `width: 350`, which is what left the old form as a narrow ribbon of
-  /// controls in the middle of a wide page.
+  /// A full-width bordered input. The shared `CustomTextField` this
+  /// replaced was locked to `width: 350`, which is what left the old form
+  /// as a narrow ribbon of controls in the middle of a wide page.
   Widget _textField({
     required String label,
     required String hint,

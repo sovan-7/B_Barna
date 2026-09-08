@@ -1,10 +1,21 @@
 import 'package:bbarna/core/widgets/app_header.dart';
+import 'package:bbarna/login/model/login_result.dart';
+import 'package:bbarna/login/repo/login_repo.dart';
 import 'package:bbarna/login/screen/login_screen.dart';
+import 'package:bbarna/login/viewModel/login_view_model.dart';
 import 'package:bbarna/resources/constant.dart';
 import 'package:bbarna/utils/session.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+/// Never called — it only has to exist so [LoginViewModel] does not build
+/// the real repo, which reaches for `FirebaseFirestore.instance`.
+class _StubLoginRepo implements LoginRepo {
+  @override
+  Future<LoginResult?> signIn(String username, String password) async => null;
+}
 
 /// A stand-in for whatever page the admin was on when they hit sign out.
 class _SomePage extends StatelessWidget {
@@ -43,9 +54,13 @@ Future<void> _pump(WidgetTester tester) async {
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
 
-  await tester.pumpWidget(MaterialApp(
-    navigatorKey: navigatorKey,
-    home: const _SomePage(),
+  await tester.pumpWidget(ChangeNotifierProvider<LoginViewModel>(
+    // Signing out lands on the login screen, which reads this.
+    create: (_) => LoginViewModel(loginRepo: _StubLoginRepo()),
+    child: MaterialApp(
+      navigatorKey: navigatorKey,
+      home: const _SomePage(),
+    ),
   ));
   await tester.pump();
 }
