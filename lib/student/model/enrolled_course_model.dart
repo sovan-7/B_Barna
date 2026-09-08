@@ -11,11 +11,11 @@ class EnrolledCourseBaseModel {
       : studentId = doc.data()?["student_id"] ?? stringDefault,
         studentName = doc.data()?["student_name"] ?? stringDefault,
         docId = doc.id,
+        // Empty, not a placeholder. This used to build one course out of
+        // leftover debug strings — "hggh", "bvnbn", "jhjh" — so a student
+        // with no enrolments showed a course named "jhjh".
         enrolledCourseList = doc.data()?["course_list"] == null
-            ? [
-                EnrolledCourseModel(
-                    "hggh", "bvnbn", "jhjh", intDefault, "jh", [])
-              ]
+            ? <EnrolledCourseModel>[]
             : List<EnrolledCourseModel>.from(
                 (doc.data()?["course_list"] as List<dynamic>).map((x) =>
                     EnrolledCourseModel.fromMap(x as Map<String, dynamic>)));

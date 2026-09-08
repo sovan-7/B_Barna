@@ -10,6 +10,7 @@ import 'package:bbarna/resources/constant.dart';
 import 'package:bbarna/teacher/model/teacher_model.dart';
 import 'package:bbarna/teacher/repo/teacher_repo.dart';
 import 'package:bbarna/teacher/screen/add_teacher.dart';
+import 'package:bbarna/teacher/widgets/teacher_form.dart';
 import 'package:bbarna/teacher/viewModel/teacher_view_model.dart';
 
 class MockTeacherRepo extends Mock implements TeacherRepo {}
@@ -47,7 +48,7 @@ final Uint8List _validPngBytes = base64Decode(
 
 void selectFakeImage(WidgetTester tester,
     {String name = 'photo.png', int size = 1024}) {
-  final state = tester.state<AddTeacherTestHooks>(find.byType(AddTeacher));
+  final state = tester.state<TeacherFormTestHooks>(find.byType(TeacherForm));
   state.setSelectedImageForTest(
     PlatformFile(name: name, size: size, bytes: _validPngBytes),
   );

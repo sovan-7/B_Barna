@@ -39,6 +39,27 @@ class Helper {
   /// every index (unrestricted) when nothing was stored — covers legacy
   /// sessions/docs predating module access, and any context where
   /// [sharedPreferences] hasn't been initialized yet (e.g. widget tests).
+  /// Whether the navigation rail was last left collapsed.
+  ///
+  /// Guarded like [allowedModuleIndices]: `sharedPreferences` is late-init
+  /// and throws anywhere it hasn't been set up (widget tests included), and
+  /// a remembered rail width is never worth taking a screen down for.
+  static bool isSidebarCollapsed() {
+    try {
+      return sharedPreferences.getBool(sidebarCollapsedPrefsKey) ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static void setSidebarCollapsed(bool collapsed) {
+    try {
+      sharedPreferences.setBool(sidebarCollapsedPrefsKey, collapsed);
+    } catch (_) {
+      // Not worth surfacing — the rail still works, it just won't remember.
+    }
+  }
+
   static List<int> allowedModuleIndices() {
     List<String>? access;
     try {

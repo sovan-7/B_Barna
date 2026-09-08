@@ -1,5 +1,3 @@
-import 'dart:developer';
-
 import 'package:bbarna/core/widgets/loader_dialog.dart';
 import 'package:bbarna/course/model/course_model.dart';
 import 'package:bbarna/resources/constant.dart';
@@ -9,14 +7,35 @@ import 'package:bbarna/student/repo/student_repo.dart';
 import 'package:bbarna/subject/model/subject_model.dart';
 import 'package:bbarna/units/model/unit_model.dart';
 import 'package:bbarna/utils/helper.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 class StudentViewModel with ChangeNotifier {
+  // Constructor-injectable so the paging, search and enrolment logic can be
+  // exercised without real Firebase.
+  final StudentRepo _studentRepo;
+  StudentViewModel({StudentRepo? studentRepo})
+      : _studentRepo = studentRepo ?? StudentRepo();
+
   List<Student> studentList = [];
   List<Student> copyStudentList = [];
 
-  final StudentRepo _studentRepo = StudentRepo();
+  /// How many the collection holds in total, so the list can say
+  /// "showing 300 of 4,200" rather than just "300".
+  int studentListLength = 0;
+  final int limit = 300;
+
+  bool isLoading = true;
+  bool isLoadingMore = false;
+
+  /// Search is a local filter over the loaded pages — students are looked
+  /// up by name or phone number, and Firestore cannot prefix-match two
+  /// fields at once. The list says so.
+  bool isSearching = false;
+
+  bool get hasMore => !isSearching && studentList.length < studentListLength;
+
+  // ---- Enrolment (used by the student settings screens) ---------------
   List<CourseModel> courseList = [];
   List<SubjectModel> subjectList = [];
   List<UnitModel> unitList = [];
@@ -25,67 +44,188 @@ class StudentViewModel with ChangeNotifier {
   EnrolledCourseBaseModel? enrolledCourseBaseModel;
   int selectedUnitLength = 0;
   int selectedEditedUnitListLength = 0;
-  int limit = 300;
-  int studentListLength = 0;
-  late DocumentSnapshot<Map<String, dynamic>> lastDoc;
-  List<DocumentSnapshot<Map<String, dynamic>>> docList = [];
   List<UnitModel> selectedEditUnitList = [];
+  List<UnitModel> editUnitList = [];
   EnrolledCourseModel? selectedSubjectModel;
 
-  List<UnitModel> editUnitList = [];
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  /// Safe to call from any point in the frame — [StudentList] is mounted
+  /// from `Sidebar.screenList[selectedIndex]` *during* a build.
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (_disposed) return;
+        super.notifyListeners();
+      });
+      return;
+    }
+    super.notifyListeners();
+  }
+
   void clearStudentData() {
     enrolledCourseBaseModel = null;
     selectedEditUnitList.clear();
     unitList.clear();
-    studentListLength = 0;
-    docList.clear();
   }
 
-  // Future getStudentList() async {
-  //   LoaderDialogs.showLoadingDialog();
-  //   studentList = await _studentRepo
-  //       .getStudentList()
-  //       .whenComplete(() => Navigator.pop(navigatorKey.currentContext!));
-  //   copyStudentList.clear();
-  //   copyStudentList.addAll(studentList);
-  //   notifyListeners();
-  // }
+  // ---- The list -------------------------------------------------------
 
-  Future<void> getEnrolledCourseList(String studentId) async {
+  Future<void> fetchFirstStudentList() async {
+    isLoading = true;
+    isSearching = false;
+    notifyListeners();
     try {
-      enrolledCourseBaseModel =
-          await _studentRepo.getEnrolledCourseList(studentId);
-      log(enrolledCourseBaseModel?.docId ?? "pppppppppp");
-      notifyListeners();
+      studentList = await _studentRepo.getFirstStudentList(limit);
+      copyStudentList = List<Student>.from(studentList);
+      studentListLength = await _studentRepo.getStudentListLength();
     } catch (e) {
-      log(e.toString());
-      //   Helper.showSnackBarMessage(
-      //       msg: "Error while fetching data", isSuccess: false);
+      Helper.showSnackBarMessage(
+          msg: "Error while fetching students", isSuccess: false);
+    } finally {
+      isLoading = false;
+      notifyListeners();
     }
   }
 
-  Future getCourseList() async {
-    LoaderDialogs.showLoadingDialog();
-    courseList = await _studentRepo
-        .getCourseList()
-        .whenComplete(() => Navigator.pop(navigatorKey.currentContext!));
+  Future<void> fetchNextStudentList() async {
+    if (isLoadingMore || !hasMore) return;
+
+    isLoadingMore = true;
+    notifyListeners();
+    try {
+      studentList.addAll(await _studentRepo.getNextStudentList(limit));
+      copyStudentList = List<Student>.from(studentList);
+    } catch (e) {
+      Helper.showSnackBarMessage(
+          msg: "Error while fetching more students", isSuccess: false);
+    } finally {
+      isLoadingMore = false;
+      notifyListeners();
+    }
+  }
+
+  /// Kept for the screens that called it directly; the count now arrives
+  /// with the first page.
+  Future<void> getStudentListLength() async {
+    try {
+      studentListLength = await _studentRepo.getStudentListLength();
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  void searchStudent({required String searchText}) {
+    final String query = searchText.toLowerCase().trim();
+    isSearching = query.isNotEmpty;
+    if (query.isEmpty) {
+      studentList = List<Student>.from(copyStudentList);
+    } else {
+      studentList = copyStudentList
+          .where((student) =>
+              student.studentName.toLowerCase().contains(query) ||
+              student.studentPhoneNumber.contains(query) ||
+              student.studentEmail.toLowerCase().contains(query))
+          .toList();
+    }
     notifyListeners();
   }
 
-  Future getSubjectList(String courseCode) async {
-    subjectList = await _studentRepo.getSubjectList(courseCode);
+  /// Deletes by document id and drops that row from both lists.
+  ///
+  /// The list widget used to delete straight through
+  /// `FirebaseFirestore.instance` and then call `removeStudent(index)`,
+  /// which removed whatever row happened to sit at that index — and left
+  /// `copyStudentList` holding the deleted student, so clearing the search
+  /// brought them back.
+  Future<bool> deleteStudent(String studentId) async {
+    try {
+      await _studentRepo.deleteStudent(studentId);
+      studentList = studentList.where((s) => s.studentId != studentId).toList();
+      copyStudentList =
+          copyStudentList.where((s) => s.studentId != studentId).toList();
+      if (studentListLength > 0) studentListLength--;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      Helper.showSnackBarMessage(
+          msg: "Error while deleting the student", isSuccess: false);
+      return false;
+    }
+  }
+
+  /// Signs the student out of every device.
+  Future<bool> clearDeviceCount(String studentId) async {
+    try {
+      await _studentRepo.clearDeviceCount(studentId);
+      for (final Student student in studentList) {
+        if (student.studentId == studentId) student.deviceCount = 0;
+      }
+      notifyListeners();
+      return true;
+    } catch (e) {
+      Helper.showSnackBarMessage(
+          msg: "Error while signing the student out", isSuccess: false);
+      return false;
+    }
+  }
+
+  // ---- Enrolment ------------------------------------------------------
+
+  Future<void> getEnrolledCourseList(String studentId) async {
+    try {
+      // Null when the student has no enrolments — the repo used to take
+      // `docs.first` unguarded and throw.
+      enrolledCourseBaseModel =
+          await _studentRepo.getEnrolledCourseList(studentId);
+    } catch (e) {
+      enrolledCourseBaseModel = null;
+    }
+    notifyListeners();
+  }
+
+  /// Loads the courses for the enrolment picker.
+  ///
+  /// This used to push the global loader dialog and pop it on completion.
+  /// It is called from a screen's `initState`, and the dialog is scheduled
+  /// 100ms out — so a fetch that finished first popped the *page* instead.
+  Future<void> getCourseList() async {
+    try {
+      courseList = await _studentRepo.getCourseList();
+    } catch (e) {
+      Helper.showSnackBarMessage(
+          msg: "Error while fetching courses", isSuccess: false);
+    }
+    notifyListeners();
+  }
+
+  Future<void> getSubjectList(String courseCode) async {
+    try {
+      subjectList = await _studentRepo.getSubjectList(courseCode);
+    } catch (e) {
+      subjectList = [];
+    }
     clearUnitList();
     notifyListeners();
   }
 
-  Future getUnitList({required String subjectCode}) async {
-    LoaderDialogs.showLoadingDialog();
+  Future<void> getUnitList({required String subjectCode}) async {
     clearUnitList();
-    unitList = await _studentRepo
-        .getUnitList(subjectCode: subjectCode)
-        .whenComplete(() => Navigator.pop(navigatorKey.currentContext!));
-    for (int i = 0; i < unitList.length; i++) {
-      selectedUnitList.add("");
+    notifyListeners();
+    try {
+      unitList = await _studentRepo.getUnitList(subjectCode: subjectCode);
+      selectedUnitList = List<String>.filled(unitList.length, "");
+    } catch (e) {
+      unitList = [];
+      selectedUnitList = [];
     }
     notifyListeners();
   }
@@ -97,129 +237,71 @@ class StudentViewModel with ChangeNotifier {
   }
 
   void updateCheckList(int index) {
-    if (selectedUnitList[index] == "") {
-      selectedUnitList[index] = unitList[index].code;
-    } else {
-      selectedUnitList[index] = "";
-    }
-    selectedUnitLength = selectedUnitList
-        .where(
-          (element) => element != "",
-        )
-        .toList()
-        .length;
+    selectedUnitList[index] =
+        selectedUnitList[index] == "" ? unitList[index].code : "";
+    selectedUnitLength =
+        selectedUnitList.where((element) => element != "").length;
     notifyListeners();
   }
 
   void setAllCheckList() {
-    if (selectedUnitList.contains("")) {
-      for (int i = 0; i < unitList.length; i++) {
-        selectedUnitList[i] = unitList[i].code;
-      }
-    } else {
-      for (int i = 0; i < unitList.length; i++) {
-        selectedUnitList[i] = "";
-      }
+    final bool selectAll = selectedUnitList.contains("");
+    for (int i = 0; i < unitList.length; i++) {
+      selectedUnitList[i] = selectAll ? unitList[i].code : "";
     }
-    selectedUnitLength = selectedUnitList
-        .where(
-          (element) => element != "",
-        )
-        .toList()
-        .length;
+    selectedUnitLength =
+        selectedUnitList.where((element) => element != "").length;
     notifyListeners();
   }
 
-  Future enrolledCourse(
-      String subjectCode,
-      String subjectName,
-      String subjectImage,
-      int accessTill,
-      String studentId,
-      String studentName) async {
+  Future<void> enrolledCourse(
+    String subjectCode,
+    String subjectName,
+    String subjectImage,
+    int accessTill,
+    String studentId,
+    String studentName,
+  ) async {
     LoaderDialogs.showLoadingDialog();
     try {
-      selectedUnitList.removeWhere((element) => element == "");
-      if (enrolledCourseBaseModel != null) {
-        Map<String, dynamic> data = {
-          "access_till": accessTill,
-          "access_type": "PAID",
-          "subject_code": subjectCode,
-          "subject_image": subjectImage,
-          "subject_name": subjectName,
-          "unit_code_list": selectedUnitList
-        };
-        _studentRepo.addCourse(data, studentId).then((value) {
-          Navigator.pop(navigatorKey.currentContext!);
-          getEnrolledCourseList(studentId);
-        });
-      } else {
-        Map<String, dynamic> data = {
-          "course_list": [
-            {
-              "access_till": accessTill,
-              "access_type": "PAID",
-              "subject_code": subjectCode,
-              "subject_image": subjectImage,
-              "subject_name": subjectName,
-              "unit_code_list": selectedUnitList
-            },
-          ],
-          "student_id": studentId,
-          "student_name": studentName,
-        };
-        _studentRepo.addCourse(data, studentId).then((value) {
-          Navigator.pop(navigatorKey.currentContext!);
-          getEnrolledCourseList(studentId);
-        });
-      }
-    } catch (e) {
-      log(e.toString());
+      final List<String> units =
+          selectedUnitList.where((element) => element != "").toList();
+      await _studentRepo.addCourse({
+        "access_till": accessTill,
+        "access_type": "PAID",
+        "subject_code": subjectCode,
+        "subject_image": subjectImage,
+        "subject_name": subjectName,
+        "unit_code_list": units,
+      }, studentId, studentName);
+
       Navigator.pop(navigatorKey.currentContext!);
-      Helper.showSnackBarMessage(msg: e.toString(), isSuccess: false);
+      await getEnrolledCourseList(studentId);
+    } catch (e) {
+      Navigator.pop(navigatorKey.currentContext!);
+      Helper.showSnackBarMessage(
+          msg: "Error while enrolling the student", isSuccess: false);
     }
   }
 
-  void searchStudent({required String searchText}) {
-    if (searchText.isEmpty) {
-      studentList = copyStudentList;
-    } else {
-      studentList = copyStudentList
-          .where((student) => (student.studentName
-                  .toLowerCase()
-                  .contains(searchText.toLowerCase()) ||
-              student.studentPhoneNumber.contains(searchText)))
-          .toList();
-    }
-    notifyListeners();
-  }
+  Future<void> removeCourse(String courseId) async {
+    final EnrolledCourseBaseModel? enrolment = enrolledCourseBaseModel;
+    if (enrolment == null) return;
 
-  Future removeCourse(String courseId) async {
-    EnrolledCourseBaseModel enrolledCourseData = enrolledCourseBaseModel!;
-    enrolledCourseData.enrolledCourseList
+    enrolment.enrolledCourseList
         .removeWhere((element) => element.subjectCode == courseId);
     try {
-      if (enrolledCourseData.enrolledCourseList.isNotEmpty) {
-        await FirebaseFirestore.instance
-            .collection('enrolledCourses')
-            .doc(enrolledCourseBaseModel?.docId)
-            .update(enrolledCourseData.toMap())
-            .then((value) {
-          Navigator.pop(navigatorKey.currentContext!);
-          Helper.showSnackBarMessage(
-              msg: "Course removed successfully", isSuccess: false);
-        });
+      if (enrolment.enrolledCourseList.isNotEmpty) {
+        await _studentRepo.updateEnrolment(enrolment.docId, enrolment.toMap());
+        Navigator.pop(navigatorKey.currentContext!);
+        Helper.showSnackBarMessage(
+            msg: "Course removed successfully", isSuccess: false);
       } else {
-        await FirebaseFirestore.instance
-            .collection('enrolledCourses')
-            .doc(enrolledCourseBaseModel!.docId)
-            .delete()
-            .then((value) {
-          Navigator.pop(navigatorKey.currentContext!);
-          enrolledCourseBaseModel = null;
-          notifyListeners();
-        });
+        await _studentRepo.deleteEnrolment(enrolment.docId);
+        Navigator.pop(navigatorKey.currentContext!);
+        enrolledCourseBaseModel = null;
       }
+      notifyListeners();
     } catch (e) {
       Navigator.pop(navigatorKey.currentContext!);
       Helper.showSnackBarMessage(
@@ -228,60 +310,45 @@ class StudentViewModel with ChangeNotifier {
   }
 
   Future<void> setEditedUnitList(String subjectCode) async {
-    LoaderDialogs.showLoadingDialog();
     selectedEditUnitList.clear();
-    selectedSubjectModel = null;
-    selectedSubjectModel = enrolledCourseBaseModel!.enrolledCourseList
+    selectedSubjectModel = enrolledCourseBaseModel?.enrolledCourseList
         .where((element) => element.subjectCode == subjectCode)
-        .first;
+        .firstOrNull;
+    notifyListeners();
 
-    selectedEditUnitList = await _studentRepo
-        .getUnitList(subjectCode: subjectCode)
-        .whenComplete(() => Navigator.pop(navigatorKey.currentContext!));
-
-    editedUnitList.clear();
-    for (int i = 0; i < selectedEditUnitList.length; i++) {
-      if (selectedSubjectModel!.unitCodeList
-          .contains(selectedEditUnitList[i].code)) {
-        editedUnitList.add(selectedEditUnitList[i].code);
-      } else {
-        editedUnitList.add("");
-      }
+    try {
+      selectedEditUnitList =
+          await _studentRepo.getUnitList(subjectCode: subjectCode);
+    } catch (e) {
+      selectedEditUnitList = [];
     }
+
+    final List<String> alreadyEnrolled =
+        selectedSubjectModel?.unitCodeList ?? const [];
+    editedUnitList = [
+      for (final UnitModel unit in selectedEditUnitList)
+        alreadyEnrolled.contains(unit.code) ? unit.code : "",
+    ];
+    selectedEditedUnitListLength =
+        editedUnitList.where((element) => element != "").length;
     notifyListeners();
   }
 
   void updateEditedUnitList() {
-    if (editedUnitList.contains("")) {
-      for (int i = 0; i < editedUnitList.length; i++) {
-        editedUnitList[i] = selectedEditUnitList[i].code;
-      }
-    } else {
-      for (int i = 0; i < editedUnitList.length; i++) {
-        editedUnitList[i] = "";
-      }
+    final bool selectAll = editedUnitList.contains("");
+    for (int i = 0; i < editedUnitList.length; i++) {
+      editedUnitList[i] = selectAll ? selectedEditUnitList[i].code : "";
     }
-    selectedUnitLength = editedUnitList
-        .where(
-          (element) => element != "",
-        )
-        .toList()
-        .length;
+    selectedEditedUnitListLength =
+        editedUnitList.where((element) => element != "").length;
     notifyListeners();
   }
 
   void updateEditedCheckList(int index) {
-    if (editedUnitList[index] == "") {
-      editedUnitList[index] = selectedEditUnitList[index].code;
-    } else {
-      editedUnitList[index] = "";
-    }
-    selectedEditedUnitListLength = editedUnitList
-        .where(
-          (element) => element != "",
-        )
-        .toList()
-        .length;
+    editedUnitList[index] =
+        editedUnitList[index] == "" ? selectedEditUnitList[index].code : "";
+    selectedEditedUnitListLength =
+        editedUnitList.where((element) => element != "").length;
     notifyListeners();
   }
 
@@ -290,124 +357,30 @@ class StudentViewModel with ChangeNotifier {
     notifyListeners();
   }
 
-  Future updateEditUnitCourse(String courseId) async {
+  Future<void> updateEditUnitCourse(String courseId) async {
+    final EnrolledCourseBaseModel? enrolment = enrolledCourseBaseModel;
+    if (enrolment == null) return;
+
     LoaderDialogs.showLoadingDialog();
-    EnrolledCourseBaseModel enrolledCourseData = enrolledCourseBaseModel!;
-    int courseIndex = enrolledCourseData.enrolledCourseList
+    final int courseIndex = enrolment.enrolledCourseList
         .indexWhere((element) => element.subjectCode == courseId);
-    editedUnitList.removeWhere((element) => element == "");
-    enrolledCourseData.enrolledCourseList[courseIndex].unitCodeList =
-        editedUnitList;
+    if (courseIndex == -1) {
+      Navigator.pop(navigatorKey.currentContext!);
+      return;
+    }
+    enrolment.enrolledCourseList[courseIndex].unitCodeList =
+        editedUnitList.where((element) => element != "").toList();
+
     try {
-      await FirebaseFirestore.instance
-          .collection('enrolledCourses')
-          .doc(enrolledCourseBaseModel?.docId)
-          .update(enrolledCourseData.toMap())
-          .then((value) {
-        Navigator.pop(navigatorKey.currentContext!);
-        Helper.showSnackBarMessage(
-            msg: "Course updated successfully", isSuccess: true);
-      });
+      await _studentRepo.updateEnrolment(enrolment.docId, enrolment.toMap());
+      Navigator.pop(navigatorKey.currentContext!);
+      Helper.showSnackBarMessage(
+          msg: "Course updated successfully", isSuccess: true);
+      notifyListeners();
     } catch (e) {
       Navigator.pop(navigatorKey.currentContext!);
       Helper.showSnackBarMessage(
           msg: "Sorry something went wrong", isSuccess: false);
     }
-  }
-
-  void removeStudent(int index) {
-    studentList.removeAt(index);
-    notifyListeners();
-  }
-
-  void clearDeviceCount(int index) {
-    studentList[index].deviceCount = 0;
-
-    notifyListeners();
-  }
-
-  Future<void> fetchFirstStudentList() async {
-    try {
-      LoaderDialogs.showLoadingDialog();
-      QuerySnapshot querySnapshot = await FirebaseFirestore.instance
-          .collection(student)
-          .orderBy("name", descending: false)
-          .limit(limit)
-          .get();
-      studentList.clear();
-      for (int i = 0; i < querySnapshot.docs.length; i++) {
-        DocumentSnapshot<Map<String, dynamic>> docData =
-            querySnapshot.docs[i] as DocumentSnapshot<Map<String, dynamic>>;
-        if (i == querySnapshot.docs.length - 1) {
-          lastDoc =
-              querySnapshot.docs[i] as DocumentSnapshot<Map<String, dynamic>>;
-        }
-        docList.add(
-            querySnapshot.docs[i] as DocumentSnapshot<Map<String, dynamic>>);
-
-        studentList.add(Student.fromDocumentSnapshot(docData));
-      }
-
-      copyStudentList = studentList;
-      notifyListeners();
-      Navigator.pop(navigatorKey.currentContext!);
-    } catch (e) {
-      
-      Navigator.pop(navigatorKey.currentContext!);
-      Helper.showSnackBarMessage(
-          msg: "Error while fetching data", isSuccess: false);
-    }
-  }
-
-  Future<void> fetchNextStudentList() async {
-    try {
-      LoaderDialogs.showLoadingDialog();
-      QuerySnapshot querySnapshot = await FirebaseFirestore.instance
-          .collection(student)
-          .orderBy("name", descending: false)
-          .startAfterDocument(lastDoc)
-          .limit(limit)
-          .get();
-
-      for (int i = 0; i < querySnapshot.docs.length; i++) {
-        DocumentSnapshot<Map<String, dynamic>> docData =
-            querySnapshot.docs[i] as DocumentSnapshot<Map<String, dynamic>>;
-        if (i == querySnapshot.docs.length - 1) {
-          lastDoc =
-              querySnapshot.docs[i] as DocumentSnapshot<Map<String, dynamic>>;
-        }
-        docList.add(
-            querySnapshot.docs[i] as DocumentSnapshot<Map<String, dynamic>>);
-        studentList.add(Student.fromDocumentSnapshot(docData));
-
-        copyStudentList = studentList;
-      }
-      notifyListeners();
-      Navigator.pop(navigatorKey.currentContext!);
-    } catch (e) {
-      Navigator.pop(navigatorKey.currentContext!);
-      Helper.showSnackBarMessage(
-          msg: "Error while fetching data", isSuccess: false);
-    }
-  }
-
-  void removeStudentFromLast() {
-    int range = (studentList.length % limit);
-    if (range == 0) {
-      range = limit;
-    }
-    studentList.removeRange(studentList.length - range, studentList.length);
-    docList.removeRange(docList.length - range, docList.length);
-    copyStudentList = studentList;
-    lastDoc = docList[docList.length - 1];
-    notifyListeners();
-  }
-
-  Future<void> getStudentListLength() async {
-    AggregateQuerySnapshot countSnapshot =
-        await FirebaseFirestore.instance.collection(student).count().get();
-    studentListLength = countSnapshot.count ?? 0;
-
-    notifyListeners();
   }
 }

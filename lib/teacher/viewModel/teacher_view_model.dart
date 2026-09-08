@@ -1,13 +1,12 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:bbarna/core/widgets/loader_dialog.dart';
-import 'package:bbarna/resources/constant.dart';
 import 'package:bbarna/teacher/model/teacher_model.dart';
 import 'package:bbarna/teacher/repo/teacher_repo.dart';
 import 'package:bbarna/utils/helper.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 class TeacherViewModel with ChangeNotifier {
   // Constructor-injectable, unlike every other ViewModel in this codebase
@@ -20,6 +19,35 @@ class TeacherViewModel with ChangeNotifier {
 
   List<TeacherModel> teacherList = [];
   List<TeacherModel> copyTeacherList = [];
+
+  /// Drives the list's own skeletons. The module used to reach for the
+  /// global [LoaderDialogs] overlay, which pushes a route — from
+  /// `initState`, while the sidebar shell was still building.
+  bool isLoading = true;
+
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  /// Safe to call from any point in the frame — [TeacherList] is mounted
+  /// from `Sidebar.screenList[selectedIndex]` *during* a build.
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (_disposed) return;
+        super.notifyListeners();
+      });
+      return;
+    }
+    super.notifyListeners();
+  }
 
   /// Returns true on success. On failure, shows a snackbar explaining why
   /// and returns false — the caller (AddTeacher screen) decides what to do
@@ -124,30 +152,53 @@ class TeacherViewModel with ChangeNotifier {
     return true;
   }
 
-  Future getTeacherList() async {
-    LoaderDialogs.showLoadingDialog();
-    teacherList = await _teacherRepo
-        .getTeacherList()
-        .whenComplete(() => Navigator.pop(navigatorKey.currentContext!));
-    copyTeacherList = teacherList;
+  Future<void> getTeacherList() async {
+    isLoading = true;
     notifyListeners();
+    try {
+      teacherList = await _teacherRepo.getTeacherList();
+      copyTeacherList = List<TeacherModel>.from(teacherList);
+    } catch (e) {
+      // The old version had no catch at all, so a failed fetch threw out of
+      // an unawaited call and left the loader dialog up for good.
+      Helper.showSnackBarMessage(
+          msg: "Error while fetching teachers", isSuccess: false);
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
   }
 
-  Future deleteTeacher(String username) async {
-    await _teacherRepo.deleteTeacher(username).whenComplete(() {
+  /// Returns true on success, and drops the teacher from both lists.
+  ///
+  /// It used to announce "Teacher deleted successfully" from a
+  /// `whenComplete`, which runs whether the delete succeeded or threw. It
+  /// also left `copyTeacherList` holding the deleted teacher, so clearing
+  /// the search brought them back.
+  Future<bool> deleteTeacher(String username) async {
+    try {
+      await _teacherRepo.deleteTeacher(username);
+      teacherList = teacherList.where((t) => t.username != username).toList();
+      copyTeacherList =
+          copyTeacherList.where((t) => t.username != username).toList();
+      notifyListeners();
+      return true;
+    } catch (e) {
       Helper.showSnackBarMessage(
-          msg: "Teacher deleted successfully", isSuccess: false);
-    });
+          msg: "Error while deleting the teacher", isSuccess: false);
+      return false;
+    }
   }
 
   void searchTeacher({required String searchText}) {
-    if (searchText.isEmpty) {
-      teacherList = copyTeacherList;
+    final String query = searchText.toLowerCase().trim();
+    if (query.isEmpty) {
+      teacherList = List<TeacherModel>.from(copyTeacherList);
     } else {
       teacherList = copyTeacherList
           .where((teacher) =>
-              teacher.name.toLowerCase().contains(searchText.toLowerCase()) ||
-              teacher.username.toLowerCase().contains(searchText.toLowerCase()))
+              teacher.name.toLowerCase().contains(query) ||
+              teacher.username.toLowerCase().contains(query))
           .toList();
     }
     notifyListeners();

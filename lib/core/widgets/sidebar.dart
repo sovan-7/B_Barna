@@ -1,10 +1,8 @@
-// ignore_for_file: must_be_immutable
-
 import 'package:bbarna/banners/screen/banner_list.dart';
 import 'package:flutter/material.dart';
 import 'package:bbarna/core/widgets/app_header.dart';
 import 'package:bbarna/core/widgets/sidebar_widget.dart';
-import 'package:bbarna/resources/app_colors.dart';
+import 'package:bbarna/resources/app_tokens.dart';
 import 'package:bbarna/resources/constant.dart';
 import 'package:bbarna/course/screen/course_list.dart';
 import 'package:bbarna/live_class/screen/live_class_list.dart';
@@ -20,6 +18,12 @@ import 'package:bbarna/topic/screen/topic_list.dart';
 import 'package:bbarna/units/screen/unit_list.dart';
 import 'package:bbarna/utils/helper.dart';
 
+/// The app shell: a fixed navigation rail beside the selected module.
+///
+/// The rail used to be `Expanded(flex: 1)` against `Expanded(flex: 5)` for
+/// the content — a ratio, so it was 183px on a laptop and 320px on a 27"
+/// monitor, never the width it actually wanted. It is a fixed width now,
+/// and every extra pixel of a wider window goes to the content instead.
 class Sidebar extends StatefulWidget {
   final int sidebarIndex;
   const Sidebar({required this.sidebarIndex, super.key});
@@ -32,6 +36,7 @@ class _SidebarState extends State<Sidebar> {
   final GlobalKey<ScaffoldState> key = GlobalKey();
 
   int selectedIndex = 0;
+  bool _collapsed = false;
 
   List<Widget> screenList = [
     const BannerList(),
@@ -49,102 +54,67 @@ class _SidebarState extends State<Sidebar> {
     const LiveClassList(),
   ];
 
-  // Absolute positions within [moduleList]/[screenList] the logged-in
-  // teacher may see — [drawerItems]/[iconList] below are the same list
-  // filtered down to those positions, but `screenList[selectedIndex]` stays
-  // indexed by the *absolute* position so hardcoded `sidebarIndex`/
-  // `ExtraSideBar(sidebarIndex: N)` call sites elsewhere keep working.
-  late List<int> allowedIndices;
-  late List<String> drawerItems;
-  late List<IconData> iconList;
-
   @override
   void initState() {
     selectedIndex = widget.sidebarIndex;
-    allowedIndices = Helper.allowedModuleIndices();
-    drawerItems = allowedIndices.map((i) => moduleList[i]).toList();
-    iconList = allowedIndices.map((i) => moduleIconList[i]).toList();
+    _collapsed = Helper.isSidebarCollapsed();
     super.initState();
+  }
+
+  void _toggleCollapsed() {
+    setState(() => _collapsed = !_collapsed);
+    // Remembered so the choice survives the pushReplacement that every
+    // add/edit screen does on its way back here.
+    Helper.setSidebarCollapsed(_collapsed);
   }
 
   @override
   Widget build(BuildContext context) {
-    double width = MediaQuery.of(context).size.width;
+    final double width = MediaQuery.of(context).size.width;
+    final bool isCompact = width < AppTokens.compactBreakpoint;
 
     return SafeArea(
       child: Scaffold(
-          key: key,
-          body: PopScope(
-            onPopInvokedWithResult: (didPop, result) {
-              if (didPop) return;
-              // handle back press
-            },
-            canPop: false,
-            child: Column(
-              children: [
-                AppHeader(
-                  onTapIcon: () {
-                    key.currentState?.openDrawer();
-                  },
+        key: key,
+        backgroundColor: AppTokens.canvas,
+        body: PopScope(
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            // handle back press
+          },
+          canPop: false,
+          child: Column(
+            children: [
+              AppHeader(onTapIcon: () => key.currentState?.openDrawer()),
+              Expanded(
+                child: Row(
+                  children: [
+                    if (!isCompact)
+                      SidebarNav(
+                        selectedIndex: selectedIndex,
+                        collapsed: _collapsed,
+                        onToggleCollapsed: _toggleCollapsed,
+                        onSelect: (moduleIndex) =>
+                            setState(() => selectedIndex = moduleIndex),
+                      ),
+                    Expanded(child: screenList[selectedIndex]),
+                  ],
                 ),
-                Expanded(
-                  child: Row(
-                    children: [
-                      if (width > 900)
-                        Expanded(
-                          child: Column(
-                            children: [
-                              SizedBox(
-                                height: 200,
-                                // color: Colors.pink,
-                                child: Image.asset(
-                                  "assets/images/logo.png",
-                                  height: 150,
-                                  width: 150,
-                                ),
-                              ),
-                              Expanded(
-                                child: Container(
-                                  color: AppColorsInApp.colorGrey
-                                      .withValues(alpha: .4),
-                                  child: ListView.builder(
-                                      itemCount: drawerItems.length,
-                                      itemBuilder: (context, index) {
-                                        final int moduleIndex =
-                                            allowedIndices[index];
-                                        return InkWell(
-                                            onTap: () {
-                                              setState(() {
-                                                selectedIndex = moduleIndex;
-                                              });
-                                            },
-                                            child: SidebarWidget(
-                                              iconData: iconList[index],
-                                              itemText: drawerItems[index],
-                                              isSelected:
-                                                  moduleIndex == selectedIndex,
-                                            ));
-                                      }),
-                                ),
-                              )
-                            ],
-                          ),
-                        ),
-                      Expanded(flex: 5, child: screenList[selectedIndex])
-                    ],
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          drawer: width < 900
-              ? Drawer(
-                  child: ExtraSideBar(
-                    sidebarIndex: selectedIndex,
-                    isFromLogin: true,
-                  ),
-                )
-              : null),
+        ),
+        drawer: isCompact
+            ? Drawer(
+                width: AppTokens.railWidth,
+                backgroundColor: AppTokens.surface,
+                child: ExtraSideBar(
+                  sidebarIndex: selectedIndex,
+                  isFromLogin: true,
+                ),
+              )
+            : null,
+      ),
     );
   }
 }
@@ -152,80 +122,211 @@ class _SidebarState extends State<Sidebar> {
 /// Bare logo+nav-list, embedded (not a full page like [Sidebar]) — used as
 /// the static side panel and narrow-width [Drawer] content across every
 /// add/edit screen, and by [Sidebar]'s own narrow-width drawer above.
-class ExtraSideBar extends StatefulWidget {
+///
+/// Selecting a module here leaves the current screen for [Sidebar], since
+/// those pages have no content area of their own to swap.
+class ExtraSideBar extends StatelessWidget {
   final int sidebarIndex;
   final bool isFromLogin;
   const ExtraSideBar(
       {required this.sidebarIndex, this.isFromLogin = false, super.key});
 
   @override
-  State<ExtraSideBar> createState() => _ExtraSideBarState();
+  Widget build(BuildContext context) {
+    return SidebarNav(
+      selectedIndex: sidebarIndex,
+      onSelect: (moduleIndex) {
+        // Not from a drawer: there is no drawer route to unwind first.
+        if (!isFromLogin) Navigator.pop(context);
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+              builder: (context) => Sidebar(sidebarIndex: moduleIndex)),
+        );
+      },
+    );
+  }
 }
 
-class _ExtraSideBarState extends State<ExtraSideBar> {
-  int selectedIndex = 0;
+/// The navigation itself — brand mark, grouped module list, and (when the
+/// host offers one) a collapse toggle.
+///
+/// [Sidebar] and [ExtraSideBar] used to each carry their own copy of this,
+/// hand-synchronised, which is exactly how the two drifted apart before.
+/// There is one implementation now and both render it.
+class SidebarNav extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onSelect;
 
-  // Kept index-aligned with Sidebar's own filtering — see the comment there.
-  late List<int> allowedIndices;
-  late List<String> drawerItems;
-  late List<IconData> iconList;
+  /// When null the rail sizes itself to whatever box it is given and drops
+  /// to icons on its own if that box is narrow — which is what the
+  /// `Expanded(child: ExtraSideBar(...))` panels on the add/edit screens
+  /// hand it. When non-null the host is driving the width and the collapse
+  /// toggle is shown.
+  final bool? collapsed;
+  final VoidCallback? onToggleCollapsed;
 
-  @override
-  void initState() {
-    selectedIndex = widget.sidebarIndex;
-    allowedIndices = Helper.allowedModuleIndices();
-    drawerItems = allowedIndices.map((i) => moduleList[i]).toList();
-    iconList = allowedIndices.map((i) => moduleIconList[i]).toList();
-    super.initState();
-  }
+  const SidebarNav({
+    required this.selectedIndex,
+    required this.onSelect,
+    this.collapsed,
+    this.onToggleCollapsed,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final bool hostDriven = collapsed != null;
+
+    if (!hostDriven) {
+      return LayoutBuilder(builder: (context, constraints) {
+        final bool tooNarrowForLabels =
+            constraints.maxWidth < AppTokens.railAutoCollapseWidth;
+        return _body(isCollapsed: tooNarrowForLabels);
+      });
+    }
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOut,
+      width: collapsed!
+          ? AppTokens.railCollapsedWidth
+          : AppTokens.railWidth,
+      child: _body(isCollapsed: collapsed!),
+    );
+  }
+
+  Widget _body({required bool isCollapsed}) {
+    final List<int> allowed = Helper.allowedModuleIndices();
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppTokens.surface,
+        border: Border(right: BorderSide(color: AppTokens.hairline)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _brand(isCollapsed),
+          const Divider(height: 1, thickness: 1, color: AppTokens.hairline),
+          Expanded(child: _modules(allowed, isCollapsed)),
+          if (onToggleCollapsed != null) ...[
+            const Divider(height: 1, thickness: 1, color: AppTokens.hairline),
+            _collapseToggle(isCollapsed),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// A 60px brand row rather than the old 200px logo box, which spent a
+  /// fifth of the rail's height on a picture and pushed the last modules
+  /// below the fold on a laptop.
+  Widget _brand(bool isCollapsed) {
+    // The logo asset is a white badge, so on a white rail it needs a
+    // tinted chip behind it to read as a mark at all.
+    final Widget logo = Container(
+      height: 34,
+      width: 34,
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: AppTokens.surfaceMuted,
+        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+        border: Border.all(color: AppTokens.hairline),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppTokens.radiusSm - 3),
+        child: Image.asset("assets/images/logo.png", fit: BoxFit.contain),
+      ),
+    );
+
+    return SizedBox(
+      height: 60,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: isCollapsed ? 0 : 16),
+        child: isCollapsed
+            ? Center(child: logo)
+            : Row(
+                children: [
+                  logo,
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          "B BARNA",
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.4,
+                              color: AppTokens.ink),
+                        ),
+                        Text(
+                          "Admin portal",
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: 11, color: AppTokens.inkFaint),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  /// One flat list, in [moduleList] order, of the modules this user may
+  /// see.
+  Widget _modules(List<int> allowed, bool isCollapsed) {
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: AppTokens.gapSm),
       children: [
-        SizedBox(
-          height: 200,
-          // color: Colors.pink,
-          child: Image.asset(
-            "assets/images/logo.png",
-            height: 150,
-            width: 150,
+        for (final int moduleIndex in allowed)
+          SidebarWidget(
+            iconData: moduleIconList[moduleIndex],
+            itemText: moduleDisplayList[moduleIndex],
+            isSelected: moduleIndex == selectedIndex,
+            isCollapsed: isCollapsed,
+            onTap: () => onSelect(moduleIndex),
+          ),
+      ],
+    );
+  }
+
+  Widget _collapseToggle(bool isCollapsed) {
+    return Tooltip(
+      message: isCollapsed ? "Expand sidebar" : "Collapse sidebar",
+      child: InkWell(
+        onTap: onToggleCollapsed,
+        child: SizedBox(
+          height: 44,
+          child: Row(
+            mainAxisAlignment: isCollapsed
+                ? MainAxisAlignment.center
+                : MainAxisAlignment.start,
+            children: [
+              if (!isCollapsed) const SizedBox(width: 19),
+              Icon(
+                isCollapsed
+                    ? Icons.keyboard_double_arrow_right
+                    : Icons.keyboard_double_arrow_left,
+                size: 17,
+                color: AppTokens.inkFaint,
+              ),
+              if (!isCollapsed) ...[
+                const SizedBox(width: 11),
+                const Text("Collapse",
+                    style: TextStyle(
+                        fontSize: 12.5, color: AppTokens.inkFaint)),
+              ],
+            ],
           ),
         ),
-        Expanded(
-          child: Container(
-            color: AppColorsInApp.colorGrey.withValues(alpha: .4),
-            child: ListView.builder(
-                itemCount: drawerItems.length,
-                itemBuilder: (context, index) {
-                  final int moduleIndex = allowedIndices[index];
-                  return InkWell(
-                    onTap: () {
-                      if (widget.isFromLogin) {
-                        Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) =>
-                                    Sidebar(sidebarIndex: moduleIndex)));
-                      } else {
-                        Navigator.pop(context);
-                        Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) =>
-                                    Sidebar(sidebarIndex: moduleIndex)));
-                      }
-                    },
-                    child: SidebarWidget(
-                      iconData: iconList[index],
-                      itemText: drawerItems[index],
-                      isSelected: moduleIndex == selectedIndex,
-                    ),
-                  );
-                }),
-          ),
-        )
-      ],
+      ),
     );
   }
 }

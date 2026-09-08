@@ -50,9 +50,12 @@ class QuizModel {
         name = doc.data()!["quiz_name"] ?? stringDefault,
         type = doc.data()!["quiz_type"] ?? stringDefault,
         status = doc.data()!["quiz_status"] ?? stringDefault,
-        totalTime = doc.data()!["total_time"] ?? stringDefault,
-        totalMarks = doc.data()!["total_marks"] ?? stringDefault,
-        numberDeduction = doc.data()!["number_deduction"] ?? stringDefault,
+        // These are ints. They defaulted to `stringDefault` ("NA"), so a
+        // document missing any one of them threw a type error on read
+        // rather than falling back.
+        totalTime = doc.data()!["total_time"] ?? intDefault,
+        totalMarks = doc.data()!["total_marks"] ?? intDefault,
+        numberDeduction = doc.data()!["number_deduction"] ?? intDefault,
         timeStamp = doc.data()!["timeStamp"] ?? intDefault,
         totalWrongAnswer = doc.data()!["total_wrong_answer"] ?? intDefault,
         totalQuestion = doc.data()!["total_question"] ?? intDefault,

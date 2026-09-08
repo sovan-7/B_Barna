@@ -1,141 +1,168 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:bbarna/core/widgets/loader_dialog.dart';
 import 'package:bbarna/documents/audio/model/audio_model.dart';
 import 'package:bbarna/documents/audio/repo/audio_repo.dart';
-import 'package:bbarna/resources/constant.dart';
 import 'package:bbarna/utils/helper.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 class AudioViewModel with ChangeNotifier {
-  final AudioRepo _audioRepo = AudioRepo();
+  // Constructor-injectable so the paging, search and save logic can be
+  // exercised without real Firebase.
+  final AudioRepo _audioRepo;
+  AudioViewModel({AudioRepo? audioRepo}) : _audioRepo = audioRepo ?? AudioRepo();
+
   List<AudioModel> audioList = [];
-  List<AudioModel> copyAudioList = [];
-  Timer? _debounce;
-  int limit = 50;
+
+  /// How many the collection holds in total, so the list can say
+  /// "showing 50 of 320" rather than just "50".
   int audioListLength = 0;
-  List<QueryDocumentSnapshot> docList = [];
-  late DocumentSnapshot<Map<String, dynamic>> lastDoc;
+  final int limit = 50;
 
-  Future<DocumentReference<Map<String, dynamic>>> addAudio(
-      AudioModel audioModel) async {
-    return await _audioRepo.addAudio(audioModel);
+  bool isLoading = true;
+  bool isLoadingMore = false;
+
+  /// Set while a search is showing, because searching queries the server
+  /// separately and paging does not apply to the result.
+  bool isSearching = false;
+
+  Timer? _debounce;
+  bool _disposed = false;
+
+  bool get hasMore => !isSearching && audioList.length < audioListLength;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _disposed = true;
+    super.dispose();
   }
 
-  Future uploadAudio(Uint8List audio, String audioCode, String docId) async {
-    await _audioRepo.uploadAudio(audioCode, audio, docId);
-  }
-
-  Future updateAudio(AudioModel audioModel, String docId) async {
-    await _audioRepo.updateAudio(audioModel, docId);
-  }
-
-  Future deleteAudio(String docId) async {
-    LoaderDialogs.showLoadingDialog();
-    try {
-      await _audioRepo.deleteAudio(docId).whenComplete(() {
-        Navigator.pop(navigatorKey.currentContext!);
-        Helper.showSnackBarMessage(
-            msg: "Audio deleted successfully", isSuccess: false);
+  /// Safe to call from any point in the frame — [AudioList] is mounted from
+  /// `Sidebar.screenList[selectedIndex]` *during* a build.
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (_disposed) return;
+        super.notifyListeners();
       });
+      return;
+    }
+    super.notifyListeners();
+  }
+
+  Future<void> getFirstAudioList() async {
+    isLoading = true;
+    isSearching = false;
+    notifyListeners();
+    try {
+      audioList = await _audioRepo.getFirstAudioList(limit);
+      audioListLength = await _audioRepo.getAudioListLength();
     } catch (e) {
-      Navigator.pop(navigatorKey.currentContext!);
+      Helper.showSnackBarMessage(
+          msg: "Error while fetching audio clips", isSuccess: false);
+    } finally {
+      isLoading = false;
+      notifyListeners();
     }
   }
 
-  void clearAudioList() {
-    audioList.clear();
-    copyAudioList.clear();
+  Future<void> getNextAudioList() async {
+    if (isLoadingMore || !hasMore) return;
+
+    isLoadingMore = true;
     notifyListeners();
+    try {
+      audioList.addAll(await _audioRepo.getNextAudioList(limit));
+    } catch (e) {
+      Helper.showSnackBarMessage(
+          msg: "Error while fetching more audio clips", isSuccess: false);
+    } finally {
+      isLoadingMore = false;
+      notifyListeners();
+    }
   }
 
-  Future getFirstAudioList() async {
-    LoaderDialogs.showLoadingDialog();
-    QuerySnapshot<Map<String, dynamic>> snapshot =
-        await _audioRepo.getFirstAudioList(limit);
-    audioList.clear();
-    for (int i = 0; i < snapshot.docs.length; i++) {
-      DocumentSnapshot<Map<String, dynamic>> docData =
-          snapshot.docs[i] as DocumentSnapshot<Map<String, dynamic>>;
-      if (i == snapshot.docs.length - 1) {
-        lastDoc = snapshot.docs[i] as DocumentSnapshot<Map<String, dynamic>>;
+  /// Creates the document and uploads its file as one operation.
+  ///
+  /// An audio row exists only to point at a file, so a document whose upload
+  /// failed is not a partial clip — it is a broken row. The empty document
+  /// is removed again and the caller is told the truth.
+  Future<bool> createAudio(AudioModel audioModel, Uint8List file) async {
+    String? docId;
+    try {
+      docId = await _audioRepo.addAudio(audioModel);
+      await _audioRepo.uploadAudio(file, docId);
+      return true;
+    } catch (e) {
+      if (docId != null) {
+        try {
+          await _audioRepo.deleteAudio(docId);
+        } catch (_) {}
       }
-      audioList.add(AudioModel.fromDocumentSnapshot(docData));
+      Helper.showSnackBarMessage(
+          msg: "Error while adding the audio clip", isSuccess: false);
+      return false;
     }
-    copyAudioList = audioList;
-    docList.addAll(snapshot.docs);
-    Navigator.pop(navigatorKey.currentContext!);
-    notifyListeners();
   }
 
-  Future getNextAudioList() async {
-    LoaderDialogs.showLoadingDialog();
-
-    QuerySnapshot<Map<String, dynamic>> snapshot =
-        await _audioRepo.getNextAudioList(limit, lastDoc);
-    for (int i = 0; i < snapshot.docs.length; i++) {
-      DocumentSnapshot<Map<String, dynamic>> docData =
-          snapshot.docs[i] as DocumentSnapshot<Map<String, dynamic>>;
-      if (i == snapshot.docs.length - 1) {
-        lastDoc = snapshot.docs[i] as DocumentSnapshot<Map<String, dynamic>>;
+  /// [file] is null when the admin did not pick a new one — the existing
+  /// file is then left exactly as it is.
+  Future<bool> updateAudio(AudioModel audioModel, String docId,
+      {Uint8List? file}) async {
+    try {
+      await _audioRepo.updateAudio(audioModel, docId);
+      if (file != null) {
+        await _audioRepo.uploadAudio(file, docId);
       }
-      audioList.add(AudioModel.fromDocumentSnapshot(docData));
+      return true;
+    } catch (e) {
+      Helper.showSnackBarMessage(
+          msg: "Error while updating the audio clip", isSuccess: false);
+      return false;
     }
-    Navigator.pop(navigatorKey.currentContext!);
-    copyAudioList = audioList;
-    docList.addAll(snapshot.docs);
-    notifyListeners();
   }
 
+  Future<bool> deleteAudio(String docId) async {
+    try {
+      await _audioRepo.deleteAudio(docId);
+      return true;
+    } catch (e) {
+      Helper.showSnackBarMessage(
+          msg: "Error while deleting the audio clip", isSuccess: false);
+      return false;
+    }
+  }
+
+  /// Debounced prefix search on the audio clip code, run server-side because the
+  /// collection is paged and most of it is not in memory.
   Future<void> searchAudio({required String searchText}) async {
     if (_debounce?.isActive ?? false) _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 500), () async {
-      if (searchText.isEmpty) {
-        audioList = copyAudioList;
+    _debounce = Timer(const Duration(milliseconds: 400), () async {
+      if (searchText.trim().isEmpty) {
+        await getFirstAudioList();
+        return;
+      }
+
+      isSearching = true;
+      isLoading = true;
+      notifyListeners();
+      try {
+        audioList = await _audioRepo.searchAudio(searchText.trim().toUpperCase());
+      } catch (e) {
+        audioList = [];
+        // The old catch popped the current route before showing this —
+        // a failed search took the whole page off the navigator.
+        Helper.showSnackBarMessage(
+            msg: "Error while searching audio clips", isSuccess: false);
+      } finally {
+        isLoading = false;
         notifyListeners();
-      } else {
-        try {
-          //  LoaderDialogs.showLoadingDialog();
-          audioList = await _audioRepo.searchPdf(searchText);
-          notifyListeners();
-          //Navigator.pop(navigatorKey.currentContext!);
-        } catch (e) {
-          Navigator.pop(navigatorKey.currentContext!);
-          Helper.showSnackBarMessage(
-              msg: "Error while fetching data", isSuccess: false);
-        }
       }
     });
-  }
-
-  void removeAudioFromLast() {
-    int exesData = docList.length % limit;
-    if (exesData > 0) {
-      docList.removeRange((docList.length - exesData), docList.length);
-      audioList.removeRange((docList.length - exesData), docList.length);
-      lastDoc = docList.last as DocumentSnapshot<Map<String, dynamic>>;
-      copyAudioList = audioList;
-    } else {
-      if ((docList.length - limit) >= limit) {
-        docList.removeRange(docList.length - limit, docList.length);
-        audioList.removeRange(audioList.length - limit, audioList.length);
-        lastDoc = docList.last as DocumentSnapshot<Map<String, dynamic>>;
-        copyAudioList = audioList;
-      }
-    }
-    notifyListeners();
-  }
-
-  Future<void> getAudioListLength() async {
-    audioListLength = await _audioRepo.getAudioListLength();
-    notifyListeners();
-  }
-
-  void clearData() {
-    audioList.clear();
-    copyAudioList.clear();
-    notifyListeners();
   }
 }

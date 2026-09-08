@@ -54,6 +54,29 @@ const List<String> moduleList = [
 /// every Live Class screen passes as `ExtraSideBar(sidebarIndex: ...)`.
 const int liveClassModuleIndex = 12;
 
+/// What the sidebar *shows*, index-aligned with [moduleList].
+///
+/// [moduleList] is the persisted identity of a module: a teacher's
+/// module-access list stores those exact strings and
+/// `Helper.allowedModuleIndices` matches on them, so renaming an entry
+/// there would silently revoke access for every existing teacher. This
+/// list carries the human label instead, and is safe to reword.
+const List<String> moduleDisplayList = [
+  "Banners",
+  "Courses",
+  "Subjects",
+  "Units",
+  "Topics",
+  "Videos",
+  "PDFs",
+  "Audio",
+  "Quizzes",
+  "Questions",
+  "Students",
+  "Teachers",
+  "Live Classes",
+];
+
 const String roleAdmin = "admin";
 const String roleSubadmin = "subadmin";
 
@@ -61,6 +84,11 @@ const String roleSubadmin = "subadmin";
 /// stored under at login — [Sidebar] and [ExtraSideBar] read it back to
 /// restrict which modules they render.
 const String moduleAccessPrefsKey = "module_access";
+
+/// SharedPreferences key remembering whether the navigation rail was left
+/// collapsed, so the choice survives the pushReplacement each add/edit
+/// screen makes on its way back to [Sidebar].
+const String sidebarCollapsedPrefsKey = "sidebar_collapsed";
 
 /// [AddTeacher] generates its role selector from this list — keep it as the
 /// single source of truth for valid teacher roles.

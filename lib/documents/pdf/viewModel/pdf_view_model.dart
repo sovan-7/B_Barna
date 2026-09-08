@@ -1,128 +1,202 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:bbarna/core/widgets/loader_dialog.dart';
 import 'package:bbarna/documents/pdf/model/pdf_model.dart';
 import 'package:bbarna/documents/pdf/repo/pdf_repo.dart';
-import 'package:bbarna/resources/constant.dart';
 import 'package:bbarna/utils/helper.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 class PdfViewModel with ChangeNotifier {
-  final PdfRepo _pdfRepo = PdfRepo();
+  // Constructor-injectable so the paging, search and save logic can be
+  // exercised without real Firebase.
+  final PdfRepo _pdfRepo;
+  PdfViewModel({PdfRepo? pdfRepo}) : _pdfRepo = pdfRepo ?? PdfRepo();
+
   List<PdfModel> pdfList = [];
-  List<PdfModel> copyPdfList = [];
-  Timer? _debounce;
-  int limit = 50;
+
+  /// How many the collection holds in total, so the list can say
+  /// "showing 50 of 320" rather than just "50".
   int pdfListLength = 0;
-  List<QueryDocumentSnapshot> docList = [];
-  late DocumentSnapshot<Map<String, dynamic>> lastDoc;
+  final int limit = 50;
 
-  Future<DocumentReference<Map<String, dynamic>>> addPdf(
-      PdfModel topicModel) async {
-    return await _pdfRepo.addPdf(topicModel);
+  bool isLoading = true;
+  bool isLoadingMore = false;
+
+  /// Set while a search is showing, because searching queries the server
+  /// separately and paging does not apply to the result.
+  bool isSearching = false;
+
+  Timer? _debounce;
+  bool _disposed = false;
+
+  bool get hasMore => !isSearching && pdfList.length < pdfListLength;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _disposed = true;
+    super.dispose();
   }
 
-  Future uploadPdf(Uint8List pdf, String pdfCode, String docId) async {
-    await _pdfRepo.uploadPDF(pdfCode, pdf, docId);
+  /// Safe to call from any point in the frame — [PDFList] is mounted from
+  /// `Sidebar.screenList[selectedIndex]` *during* a build.
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (_disposed) return;
+        super.notifyListeners();
+      });
+      return;
+    }
+    super.notifyListeners();
   }
 
-  Future updatePdf(PdfModel pdfModel, String docId) async {
-    LoaderDialogs.showLoadingDialog();
-
-    await _pdfRepo.updatePdf(pdfModel, docId).whenComplete(() {
-      Navigator.pop(navigatorKey.currentContext!);
-    });
-  }
-
-  Future deletePdf(String docId) async {
-    await _pdfRepo.deletePdf(docId).whenComplete(() {
+  Future<void> getFirstPdfList() async {
+    isLoading = true;
+    isSearching = false;
+    notifyListeners();
+    try {
+      pdfList = await _pdfRepo.getFirstPdfList(limit);
+      pdfListLength = await _pdfRepo.getPdfListLength();
+    } catch (e) {
       Helper.showSnackBarMessage(
-          msg: "Pdf deleted successfully", isSuccess: false);
-      getPdfListLength();
-    });
-  }
-
-  Future getFirstPdfList() async {
-    LoaderDialogs.showLoadingDialog();
-    QuerySnapshot<Map<String, dynamic>> snapshot =
-        await _pdfRepo.getFirstPdfList(limit);
-    pdfList.clear();
-    for (int i = 0; i < snapshot.docs.length; i++) {
-      DocumentSnapshot<Map<String, dynamic>> docData =
-          snapshot.docs[i] as DocumentSnapshot<Map<String, dynamic>>;
-      if (i == snapshot.docs.length - 1) {
-        lastDoc = snapshot.docs[i] as DocumentSnapshot<Map<String, dynamic>>;
-      }
-      pdfList.add(PdfModel.fromDocumentSnapshot(docData));
+          msg: "Error while fetching PDFs", isSuccess: false);
+    } finally {
+      isLoading = false;
+      notifyListeners();
     }
-    copyPdfList = pdfList;
-    docList.addAll(snapshot.docs);
-    Navigator.pop(navigatorKey.currentContext!);
-    notifyListeners();
   }
 
-  Future getNextPdfList() async {
-    LoaderDialogs.showLoadingDialog();
+  Future<void> getNextPdfList() async {
+    if (isLoadingMore || !hasMore) return;
 
-    QuerySnapshot<Map<String, dynamic>> snapshot =
-        await _pdfRepo.getNextPdfList(limit, lastDoc);
-    for (int i = 0; i < snapshot.docs.length; i++) {
-      DocumentSnapshot<Map<String, dynamic>> docData =
-          snapshot.docs[i] as DocumentSnapshot<Map<String, dynamic>>;
-      if (i == snapshot.docs.length - 1) {
-        lastDoc = snapshot.docs[i] as DocumentSnapshot<Map<String, dynamic>>;
-      }
-      pdfList.add(PdfModel.fromDocumentSnapshot(docData));
+    isLoadingMore = true;
+    notifyListeners();
+    try {
+      pdfList.addAll(await _pdfRepo.getNextPdfList(limit));
+    } catch (e) {
+      Helper.showSnackBarMessage(
+          msg: "Error while fetching more PDFs", isSuccess: false);
+    } finally {
+      isLoadingMore = false;
+      notifyListeners();
     }
-    Navigator.pop(navigatorKey.currentContext!);
-    copyPdfList = pdfList;
-    docList.addAll(snapshot.docs);
-    notifyListeners();
   }
 
+  /// Creates the document and uploads its file as one operation.
+  ///
+  /// A PDF row exists only to point at a file, so a document whose upload
+  /// failed is not a partial PDF — it is a broken row. The empty document
+  /// is removed again and the caller is told the truth.
+  Future<bool> createPdf(PdfModel pdfModel, Uint8List file) async {
+    String? docId;
+    try {
+      docId = await _pdfRepo.addPdf(pdfModel);
+      await _pdfRepo.uploadPdf(file, docId);
+      return true;
+    } catch (e) {
+      if (docId != null) {
+        try {
+          await _pdfRepo.deletePdf(docId);
+        } catch (_) {}
+      }
+      Helper.showSnackBarMessage(
+          msg: "Error while adding the PDF", isSuccess: false);
+      return false;
+    }
+  }
+
+  /// [file] is null when the admin did not pick a new one — the existing
+  /// file is then left exactly as it is.
+  Future<bool> updatePdf(PdfModel pdfModel, String docId,
+      {Uint8List? file}) async {
+    try {
+      await _pdfRepo.updatePdf(pdfModel, docId);
+      if (file != null) {
+        await _pdfRepo.uploadPdf(file, docId);
+      }
+      return true;
+    } catch (e) {
+      Helper.showSnackBarMessage(
+          msg: "Error while updating the PDF", isSuccess: false);
+      return false;
+    }
+  }
+
+  Future<bool> deletePdf(String docId) async {
+    try {
+      await _pdfRepo.deletePdf(docId);
+      return true;
+    } catch (e) {
+      Helper.showSnackBarMessage(
+          msg: "Error while deleting the PDF", isSuccess: false);
+      return false;
+    }
+  }
+
+  /// Flips the lock and updates the row in place. The old toggle wrote to
+  /// Firestore and did nothing else at all — not even a refetch — so the
+  /// padlock stayed as it was until you left the screen and came back.
+  Future<bool> toggleLocked(PdfModel pdfModel) async {
+    final bool next = !pdfModel.isLocked;
+    final bool ok = await _setFlag(pdfModel.docId, "is_locked", next);
+    if (ok) {
+      pdfModel.isLocked = next;
+      notifyListeners();
+    }
+    return ok;
+  }
+
+  Future<bool> toggleDownloadable(PdfModel pdfModel) async {
+    final bool next = !pdfModel.isDownloadable;
+    final bool ok = await _setFlag(pdfModel.docId, "is_downloadable", next);
+    if (ok) {
+      pdfModel.isDownloadable = next;
+      notifyListeners();
+    }
+    return ok;
+  }
+
+  Future<bool> _setFlag(String docId, String field, bool value) async {
+    try {
+      await _pdfRepo.setPdfFlag(docId, field, value);
+      return true;
+    } catch (e) {
+      Helper.showSnackBarMessage(
+          msg: "Error while updating the PDF", isSuccess: false);
+      return false;
+    }
+  }
+
+  /// Debounced prefix search on the PDF code, run server-side because the
+  /// collection is paged and most of it is not in memory.
   Future<void> searchPdf({required String searchText}) async {
     if (_debounce?.isActive ?? false) _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 500), () async {
-      if (searchText.isEmpty) {
-        pdfList = copyPdfList;
+    _debounce = Timer(const Duration(milliseconds: 400), () async {
+      if (searchText.trim().isEmpty) {
+        await getFirstPdfList();
+        return;
+      }
+
+      isSearching = true;
+      isLoading = true;
+      notifyListeners();
+      try {
+        pdfList = await _pdfRepo.searchPdf(searchText.trim().toUpperCase());
+      } catch (e) {
+        pdfList = [];
+        // The old catch popped the current route before showing this —
+        // a failed search took the whole page off the navigator.
+        Helper.showSnackBarMessage(
+            msg: "Error while searching PDFs", isSuccess: false);
+      } finally {
+        isLoading = false;
         notifyListeners();
-      } else {
-        try {
-          //  LoaderDialogs.showLoadingDialog();
-          pdfList = await _pdfRepo.searchPdf(searchText);
-          notifyListeners();
-          //Navigator.pop(navigatorKey.currentContext!);
-        } catch (e) {
-          Navigator.pop(navigatorKey.currentContext!);
-          Helper.showSnackBarMessage(
-              msg: "Error while fetching data", isSuccess: false);
-        }
       }
     });
-  }
-
-  void removePdfFromLast() {
-    int exesData = docList.length % limit;
-    if (exesData > 0) {
-      docList.removeRange((docList.length - exesData), docList.length);
-      pdfList.removeRange((docList.length - exesData), docList.length);
-      lastDoc = docList.last as DocumentSnapshot<Map<String, dynamic>>;
-      copyPdfList = pdfList;
-    } else {
-      if ((docList.length - limit) >= limit) {
-        docList.removeRange(docList.length - limit, docList.length);
-        pdfList.removeRange(pdfList.length - limit, pdfList.length);
-        lastDoc = docList.last as DocumentSnapshot<Map<String, dynamic>>;
-        copyPdfList = pdfList;
-      }
-    }
-    notifyListeners();
-  }
-
-  Future<void> getPdfListLength() async {
-    pdfListLength = await _pdfRepo.getPdfListLength();
-    notifyListeners();
   }
 }

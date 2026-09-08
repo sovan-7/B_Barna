@@ -1,207 +1,171 @@
 import 'dart:async';
-import 'package:bbarna/core/widgets/loader_dialog.dart';
-import 'package:bbarna/resources/constant.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/cupertino.dart';
-import 'package:bbarna/question/model/question.dart';
-import 'package:bbarna/utils/helper.dart';
-import 'package:html_editor_enhanced/html_editor.dart';
-// import 'package:html_editor_enhanced/html_editor.dart';
 
+import 'package:bbarna/question/model/question.dart';
+import 'package:bbarna/question/model/question_draft.dart';
+import 'package:bbarna/question/repo/question_repo.dart';
+import 'package:bbarna/utils/helper.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
+
+/// Questions: the list, its paging, and saving one.
+///
+/// This used to own eight `HtmlEditorController`s and a
+/// `TextEditingController` as well — the add and edit screens both wrote
+/// into the same set. Two forms open at once shared one buffer, and closing
+/// a form left whatever was typed in it behind for the next one. Form state
+/// belongs to the form; this holds only what the list needs.
 class QuestionViewModel extends ChangeNotifier {
+  // Constructor-injectable so the paging, search and save logic can be
+  // exercised without real Firebase.
+  final QuestionRepo _questionRepo;
+  QuestionViewModel({QuestionRepo? questionRepo})
+      : _questionRepo = questionRepo ?? QuestionRepo();
+
   List<Question> questionList = [];
-  List<Question> copyQuestionList = [];
-  int selectIndex = -1;
+
+  /// How many the collection holds in total, so the list can say
+  /// "showing 50 of 320" rather than just "50".
   int questionListLength = 0;
-  final FirebaseFirestore _fireStore = FirebaseFirestore.instance;
-  TextEditingController questionCodeController = TextEditingController();
-  HtmlEditorController questionController = HtmlEditorController();
-  HtmlEditorController solutionController = HtmlEditorController();
-  HtmlEditorController optionOneController = HtmlEditorController();
-  HtmlEditorController optionTwoController = HtmlEditorController();
-  HtmlEditorController optionThreeController = HtmlEditorController();
-  HtmlEditorController optionFourController = HtmlEditorController();
-  HtmlEditorController questionBodyController = HtmlEditorController();
-  HtmlEditorController hintController = HtmlEditorController();
-  late DocumentSnapshot<Map<String, dynamic>> lastDoc;
-  List<DocumentSnapshot<Map<String, dynamic>>> docList = [];
+  final int limit = 50;
+
+  bool isLoading = true;
+  bool isLoadingMore = false;
+
+  /// Set while a search is showing, because searching queries the server
+  /// separately and paging does not apply to the result.
+  bool isSearching = false;
 
   Timer? _debounce;
+  bool _disposed = false;
 
-  int limit = 50;
+  bool get hasMore =>
+      !isSearching && questionList.length < questionListLength;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _disposed = true;
+    super.dispose();
+  }
+
+  /// Safe to call from any point in the frame — [QuestionList] is mounted
+  /// from `Sidebar.screenList[selectedIndex]` *during* a build.
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (_disposed) return;
+        super.notifyListeners();
+      });
+      return;
+    }
+    super.notifyListeners();
+  }
+
   Future<void> fetchFirstQuestionList() async {
+    isLoading = true;
+    isSearching = false;
+    notifyListeners();
     try {
-      docList.clear();
-      LoaderDialogs.showLoadingDialog();
-      QuerySnapshot querySnapshot = await _fireStore
-          .collection(question)
-          .orderBy("timeStamp", descending: true)
-          .limit(limit)
-          .get();
-      questionList.clear();
-      for (int i = 0; i < querySnapshot.docs.length; i++) {
-        DocumentSnapshot<Map<String, dynamic>> docData =
-            querySnapshot.docs[i] as DocumentSnapshot<Map<String, dynamic>>;
-        if (i == querySnapshot.docs.length - 1) {
-          lastDoc =
-              querySnapshot.docs[i] as DocumentSnapshot<Map<String, dynamic>>;
-        }
-        docList.add(
-            querySnapshot.docs[i] as DocumentSnapshot<Map<String, dynamic>>);
-        questionList.add(Question.fromDocumentSnapshot(docData));
-      }
-      copyQuestionList = questionList;
+      questionList = await _questionRepo.getFirstQuestionList(limit);
+      questionListLength = await _questionRepo.getQuestionListLength();
+    } catch (e) {
+      Helper.showSnackBarMessage(
+          msg: "Error while fetching questions", isSuccess: false);
+    } finally {
+      isLoading = false;
       notifyListeners();
-      Navigator.pop(navigatorKey.currentContext!);
-    } catch (e) {
-      Navigator.pop(navigatorKey.currentContext!);
-      Helper.showSnackBarMessage(
-          msg: "Error while fetching data", isSuccess: false);
     }
-  }
-
-  Future<void> deleteQuestion(
-      {required String documentId, required int questionIndex}) async {
-    try {
-      DocumentReference documentReference =
-          _fireStore.collection(question).doc(documentId);
-      await documentReference.delete();
-      questionList.removeAt(questionIndex);
-      getQuestionListLength();
-      Helper.showSnackBarMessage(
-          msg: "Question deleted successfully", isSuccess: false);
-    } catch (e) {
-      Helper.showSnackBarMessage(msg: "Error while deleting", isSuccess: false);
-    }
-    notifyListeners();
-  }
-
-  Future<void> setControllerData({required Question question}) async {
-    questionCodeController.text = question.questionCode;
-    questionController.setText(question.question);
-    questionBodyController.setText(question.questionBody);
-    solutionController.setText(question.solution);
-    optionOneController.setText(question.option1);
-    optionTwoController.setText(question.option2);
-    optionThreeController.setText(question.option3);
-    optionFourController.setText(question.option4);
-    hintController.setText(question.hints);
-    selectIndex = await getSelectedOption(question.answer, question);
-    notifyListeners();
-  }
-
-  void clearControllerData() {
-    questionCodeController.clear();
-    questionController.clear();
-    questionBodyController.clear();
-    optionOneController.clear();
-    optionTwoController.clear();
-    optionThreeController.clear();
-    optionFourController.clear();
-    hintController.clear();
-    solutionController.clear();
-    selectIndex = -1;
-  }
-
-  Future<int> getSelectedOption(String answer, Question question) async {
-    int option = -1;
-
-    if (question.option1 == answer) {
-      option = 1;
-    } else if (question.option2 == answer) {
-      option = 2;
-    } else if (question.option3 == answer) {
-      option = 3;
-    } else {
-      option = 4;
-    }
-
-    return option;
-  }
-
-  void setSelectedIndex(int index) {
-    selectIndex = index;
-    notifyListeners();
-  }
-
-  Future<void> getQuestionListLength() async {
-    AggregateQuerySnapshot countSnapshot =
-        await _fireStore.collection(question).count().get();
-    questionListLength = countSnapshot.count ?? 0;
-
-    notifyListeners();
   }
 
   Future<void> fetchNextQuestionList() async {
-    try {
-      LoaderDialogs.showLoadingDialog();
-      QuerySnapshot querySnapshot = await _fireStore
-          .collection(question)
-          .orderBy("timeStamp", descending: true)
-          .startAfterDocument(lastDoc)
-          .limit(limit)
-          .get();
+    if (isLoadingMore || !hasMore) return;
 
-      for (int i = 0; i < querySnapshot.docs.length; i++) {
-        DocumentSnapshot<Map<String, dynamic>> docData =
-            querySnapshot.docs[i] as DocumentSnapshot<Map<String, dynamic>>;
-        if (i == querySnapshot.docs.length - 1) {
-          lastDoc =
-              querySnapshot.docs[i] as DocumentSnapshot<Map<String, dynamic>>;
-        }
-        docList.add(
-            querySnapshot.docs[i] as DocumentSnapshot<Map<String, dynamic>>);
-        questionList.add(Question.fromDocumentSnapshot(docData));
-
-        copyQuestionList = questionList;
-      }
-      notifyListeners();
-      Navigator.pop(navigatorKey.currentContext!);
-    } catch (e) {
-      Navigator.pop(navigatorKey.currentContext!);
-      Helper.showSnackBarMessage(
-          msg: "Error while fetching data", isSuccess: false);
-    }
-  }
-
-  void removeQuestionFromLast() {
-    int range = (questionList.length % limit);
-    if (range == 0) {
-      range = limit;
-    }
-    questionList.removeRange(questionList.length - range, questionList.length);
-    docList.removeRange(docList.length - range, docList.length);
-    copyQuestionList = questionList;
+    isLoadingMore = true;
     notifyListeners();
+    try {
+      questionList.addAll(await _questionRepo.getNextQuestionList(limit));
+    } catch (e) {
+      Helper.showSnackBarMessage(
+          msg: "Error while fetching more questions", isSuccess: false);
+    } finally {
+      isLoadingMore = false;
+      notifyListeners();
+    }
   }
 
+  Future<bool> createQuestion(QuestionDraft draft) async {
+    try {
+      await _questionRepo.addQuestion(
+          draft.toMap(timeStamp: DateTime.now().millisecondsSinceEpoch));
+      return true;
+    } catch (e) {
+      Helper.showSnackBarMessage(
+          msg: "Error while adding the question", isSuccess: false);
+      return false;
+    }
+  }
+
+  Future<bool> updateQuestion(String docId, QuestionDraft draft,
+      {required int timeStamp}) async {
+    try {
+      await _questionRepo.updateQuestion(
+          docId, draft.toMap(timeStamp: timeStamp));
+      return true;
+    } catch (e) {
+      Helper.showSnackBarMessage(
+          msg: "Error while updating the question", isSuccess: false);
+      return false;
+    }
+  }
+
+  /// Deletes by document id and drops that row from the list.
+  ///
+  /// It used to take a *list index* and `removeAt` it, so a delete confirmed
+  /// after a search or another page had loaded removed whichever row now sat
+  /// at that position.
+  Future<bool> deleteQuestion(String docId) async {
+    try {
+      await _questionRepo.deleteQuestion(docId);
+      questionList =
+          questionList.where((question) => question.docId != docId).toList();
+      if (questionListLength > 0) questionListLength--;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      Helper.showSnackBarMessage(
+          msg: "Error while deleting the question", isSuccess: false);
+      return false;
+    }
+  }
+
+  /// Debounced prefix search on the question code, run server-side because
+  /// the collection is paged and most of it is not in memory.
   Future<void> searchQuestion({required String searchText}) async {
     if (_debounce?.isActive ?? false) _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 500), () async {
-      if (searchText.isEmpty) {
-        fetchFirstQuestionList();
-      } else {
-        try {
-          //  LoaderDialogs.showLoadingDialog();
-          QuerySnapshot querySnapshot = await FirebaseFirestore.instance
-              .collection(question)
-              .where("question_code", isGreaterThanOrEqualTo: searchText)
-              .where("question_code", isLessThan: '${searchText}z')
-              .get();
-          List<Question> dummyQuestionList = [];
-          for (int i = 0; i < querySnapshot.docs.length; i++) {
-            DocumentSnapshot<Map<String, dynamic>> docData =
-                querySnapshot.docs[i] as DocumentSnapshot<Map<String, dynamic>>;
-            dummyQuestionList.add(Question.fromDocumentSnapshot(docData));
-          }
-          questionList = dummyQuestionList;
-          notifyListeners();
-          //Navigator.pop(navigatorKey.currentContext!);
-        } catch (e) {
-          Navigator.pop(navigatorKey.currentContext!);
-          Helper.showSnackBarMessage(
-              msg: "Error while fetching data", isSuccess: false);
-        }
+    _debounce = Timer(const Duration(milliseconds: 400), () async {
+      if (searchText.trim().isEmpty) {
+        await fetchFirstQuestionList();
+        return;
+      }
+
+      isSearching = true;
+      isLoading = true;
+      notifyListeners();
+      try {
+        questionList = await _questionRepo
+            .searchQuestion(searchText.trim().toUpperCase());
+      } catch (e) {
+        questionList = [];
+        // The old catch popped the current route before showing this —
+        // a failed search took the whole page off the navigator.
+        Helper.showSnackBarMessage(
+            msg: "Error while searching questions", isSuccess: false);
+      } finally {
+        isLoading = false;
+        notifyListeners();
       }
     });
   }
