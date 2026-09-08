@@ -96,6 +96,17 @@ const String moduleAccessPrefsKey = "module_access";
 /// screen makes on its way back to [Sidebar].
 const String sidebarCollapsedPrefsKey = "sidebar_collapsed";
 
+/// The stored form of a teacher's username.
+///
+/// It is both the `username` field and the Firestore document id, so the
+/// account-creation path and the login lookup must derive it identically.
+/// They did not: creation lowercased it while login queried the raw typed
+/// text, so any teacher whose username had a capital letter could never
+/// sign in — and the login screen reported that as
+/// "That username and password do not match", which reads as a wrong
+/// password.
+String normalizeUsername(String raw) => raw.trim().toLowerCase();
+
 /// [AddTeacher] generates its role selector from this list — keep it as the
 /// single source of truth for valid teacher roles.
 const List<String> roleList = [roleAdmin, roleSubadmin];

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:bbarna/resources/constant.dart';
 import 'package:bbarna/teacher/model/teacher_model.dart';
 import 'package:bbarna/teacher/repo/teacher_repo.dart';
 import 'package:bbarna/utils/helper.dart';
@@ -60,7 +61,7 @@ class TeacherViewModel with ChangeNotifier {
     required List<String> moduleAccess,
     required String role,
   }) async {
-    final String normalizedUsername = username.toLowerCase();
+    final String normalizedUsername = normalizeUsername(username);
     final String storageKey = _teacherRepo.generateStorageKey();
 
     late final String imageUrl;

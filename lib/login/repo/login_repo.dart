@@ -21,9 +21,14 @@ class LoginRepo {
     final String hashedPassword =
         sha256.convert(utf8.encode(password)).toString();
 
+    // Teacher docs store the normalized username (see TeacherViewModel
+    // .addTeacher) — normalize the typed one the same way before comparing,
+    // or a username with any capital letter never matches.
+    final String lookupUsername = normalizeUsername(username);
+
     final QuerySnapshot<Map<String, dynamic>> snapshot = await _fireStore
         .collection(teacher)
-        .where('username', isEqualTo: username)
+        .where('username', isEqualTo: lookupUsername)
         .where('password', isEqualTo: hashedPassword)
         .limit(1)
         .get();
