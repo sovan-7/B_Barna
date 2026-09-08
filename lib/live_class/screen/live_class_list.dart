@@ -420,21 +420,44 @@ class _LiveClassListState extends State<LiveClassList> {
           : (constraints.maxWidth - LiveClassTheme.gapMd * (columns - 1)) /
               columns;
 
+      // Laid out a row at a time rather than as one flat Wrap. Wrap sizes
+      // every child to its own content, so a class with a description stood
+      // visibly taller than the one beside it and the row ended ragged.
+      // IntrinsicHeight + stretch gives each row one height, set by its
+      // tallest card.
+      final List<List<LiveClassModel>> rows = <List<LiveClassModel>>[];
+      for (int i = 0; i < visible.length; i += columns) {
+        final int end = i + columns;
+        rows.add(visible.sublist(i, end > visible.length ? visible.length : end));
+      }
+
       return SingleChildScrollView(
         padding: const EdgeInsets.only(bottom: LiveClassTheme.gapMd),
-        child: Wrap(
-          spacing: LiveClassTheme.gapMd,
-          runSpacing: LiveClassTheme.gapMd,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (final LiveClassModel liveClass in visible)
-              SizedBox(
-                width: itemWidth,
-                child: LiveClassCard(
-                  key: ValueKey(liveClass.docId),
-                  liveClassData: liveClass,
-                  onChanged: () => liveClassViewModel.getLiveClassList(),
+            for (int r = 0; r < rows.length; r++) ...[
+              if (r > 0) const SizedBox(height: LiveClassTheme.gapMd),
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (int c = 0; c < rows[r].length; c++) ...[
+                      if (c > 0) const SizedBox(width: LiveClassTheme.gapMd),
+                      SizedBox(
+                        width: itemWidth,
+                        child: LiveClassCard(
+                          key: ValueKey(rows[r][c].docId),
+                          liveClassData: rows[r][c],
+                          onChanged: () =>
+                              liveClassViewModel.getLiveClassList(),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
+            ],
           ],
         ),
       );

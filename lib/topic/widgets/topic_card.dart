@@ -1,4 +1,5 @@
 import 'package:bbarna/core/widgets/remove_alert.dart';
+import 'package:bbarna/core/widgets/selectable_label.dart';
 import 'package:bbarna/resources/app_tokens.dart';
 import 'package:bbarna/resources/constant.dart';
 import 'package:bbarna/topic/model/topic_model.dart';
@@ -96,9 +97,8 @@ class _TopicCardState extends State<TopicCard> {
               Row(
                 children: [
                   Flexible(
-                    child: Text(
+                    child: SelectableLabel(
                       _data.name,
-                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                           fontSize: 14.5,
                           fontWeight: FontWeight.w600,
@@ -194,7 +194,7 @@ class _TopicCardState extends State<TopicCard> {
         borderRadius: BorderRadius.circular(AppTokens.radiusSm),
         border: Border.all(color: AppTokens.hairline),
       ),
-      child: Text(
+      child: SelectableLabel(
         _data.code,
         style: const TextStyle(
             fontSize: 11,

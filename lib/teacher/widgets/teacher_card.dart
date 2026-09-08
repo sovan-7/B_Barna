@@ -1,4 +1,5 @@
 import 'package:bbarna/core/widgets/remove_alert.dart';
+import 'package:bbarna/core/widgets/selectable_label.dart';
 import 'package:bbarna/resources/app_tokens.dart';
 import 'package:bbarna/resources/constant.dart';
 import 'package:bbarna/teacher/model/teacher_model.dart';
@@ -74,9 +75,8 @@ class _TeacherCardState extends State<TeacherCard> {
                       Row(
                         children: [
                           Flexible(
-                            child: Text(
+                            child: SelectableLabel(
                               _data.name,
-                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                   fontSize: 14.5,
                                   fontWeight: FontWeight.w600,
@@ -94,8 +94,7 @@ class _TeacherCardState extends State<TeacherCard> {
                               size: 12, color: AppTokens.inkFaint),
                           const SizedBox(width: 5),
                           Flexible(
-                            child: Text(_data.username,
-                                overflow: TextOverflow.ellipsis,
+                            child: SelectableLabel(_data.username,
                                 style: const TextStyle(
                                     fontSize: 12,
                                     color: AppTokens.inkMuted)),

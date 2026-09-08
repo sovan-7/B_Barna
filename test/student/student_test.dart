@@ -1,3 +1,4 @@
+import 'package:bbarna/core/widgets/selectable_label.dart';
 import 'package:bbarna/resources/constant.dart';
 import 'package:bbarna/student/model/enrolled_course_model.dart';
 import 'package:bbarna/student/model/student_model.dart';
@@ -463,6 +464,30 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('0 of 12 selected'), findsOneWidget);
     });
+
+  // The name and the code are what an admin pastes elsewhere -- into a
+  // search box, a spreadsheet, another module's form -- so they render as
+  // SelectableLabel rather than plain Text.
+  testWidgets('names and codes in the list are selectable', (tester) async {
+    await _pump(tester, const Size(1440, 900),
+        const Scaffold(body: StudentList()), StudentViewModel(studentRepo: repo));
+
+    final Iterable<SelectableLabel> labels =
+        tester.widgetList<SelectableLabel>(find.byType(SelectableLabel));
+    expect(labels, isNotEmpty);
+    for (final SelectableLabel label in labels) {
+      expect(label.data.trim(), isNotEmpty);
+    }
+    // Drag-select and Ctrl/Cmd-C come from the SelectableText each builds.
+    expect(
+      find.descendant(
+        of: find.byType(SelectableLabel),
+        matching: find.byType(SelectableText),
+      ),
+      findsWidgets,
+    );
+  });
+
   });
 
   group('enrolment', () {

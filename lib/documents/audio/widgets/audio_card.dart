@@ -1,4 +1,5 @@
 import 'package:bbarna/core/widgets/remove_alert.dart';
+import 'package:bbarna/core/widgets/selectable_label.dart';
 import 'package:bbarna/documents/audio/model/audio_model.dart';
 import 'package:bbarna/documents/audio/screen/edit_audio.dart';
 import 'package:bbarna/documents/audio/viewModel/audio_view_model.dart';
@@ -105,9 +106,8 @@ class _AudioCardState extends State<AudioCard> {
               Row(
                 children: [
                   Flexible(
-                    child: Text(
+                    child: SelectableLabel(
                       _data.title,
-                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                           fontSize: 14.5,
                           fontWeight: FontWeight.w600,
@@ -183,7 +183,7 @@ class _AudioCardState extends State<AudioCard> {
         borderRadius: BorderRadius.circular(AppTokens.radiusSm),
         border: Border.all(color: AppTokens.hairline),
       ),
-      child: Text(_data.code,
+      child: SelectableLabel(_data.code,
           style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,

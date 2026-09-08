@@ -1,3 +1,4 @@
+import 'package:bbarna/core/widgets/selectable_label.dart';
 import 'package:bbarna/documents/video/model/video_model.dart';
 import 'package:bbarna/documents/video/repo/video_repo.dart';
 import 'package:bbarna/documents/video/screen/add_video.dart';
@@ -246,5 +247,29 @@ void main() {
       expect(saved.videoType, 'FREE');
       expect(saved.link, 'https://youtu.be/abc');
     });
+
+  // The name and the code are what an admin pastes elsewhere -- into a
+  // search box, a spreadsheet, another module's form -- so they render as
+  // SelectableLabel rather than plain Text.
+  testWidgets('names and codes in the list are selectable', (tester) async {
+    await _pump(tester, const Size(1440, 900),
+        const Scaffold(body: VideoList()), VideoViewModel(videoRepo: repo));
+
+    final Iterable<SelectableLabel> labels =
+        tester.widgetList<SelectableLabel>(find.byType(SelectableLabel));
+    expect(labels, isNotEmpty);
+    for (final SelectableLabel label in labels) {
+      expect(label.data.trim(), isNotEmpty);
+    }
+    // Drag-select and Ctrl/Cmd-C come from the SelectableText each builds.
+    expect(
+      find.descendant(
+        of: find.byType(SelectableLabel),
+        matching: find.byType(SelectableText),
+      ),
+      findsWidgets,
+    );
+  });
+
   });
 }

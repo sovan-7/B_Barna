@@ -1,4 +1,5 @@
 import 'package:bbarna/core/widgets/remove_alert.dart';
+import 'package:bbarna/core/widgets/selectable_label.dart';
 import 'package:bbarna/documents/video/model/video_model.dart';
 import 'package:bbarna/documents/video/screen/edit_video.dart';
 import 'package:bbarna/documents/video/viewModel/video_view_model.dart';
@@ -105,9 +106,8 @@ class _VideoCardState extends State<VideoCard> {
               Row(
                 children: [
                   Flexible(
-                    child: Text(
+                    child: SelectableLabel(
                       _data.title,
-                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                           fontSize: 14.5,
                           fontWeight: FontWeight.w600,
@@ -142,7 +142,7 @@ class _VideoCardState extends State<VideoCard> {
         borderRadius: BorderRadius.circular(AppTokens.radiusSm),
         border: Border.all(color: AppTokens.hairline),
       ),
-      child: Text(_data.code,
+      child: SelectableLabel(_data.code,
           style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,

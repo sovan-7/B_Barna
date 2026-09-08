@@ -19,6 +19,19 @@ class SubjectModel {
   bool isSelected = boolDefault;
   bool isPopular = boolDefault;
 
+  /// The coupon live on this subject, as the student app reads it:
+  /// `couponDiscount` is a flat rupee amount off `sellingPrice`, not a
+  /// percentage, and `couponValidTill` is epoch millis.
+  ///
+  /// Read-only in this panel. They are deliberately absent from [toMap]
+  /// because there is no coupon editor here, and writing the "NA"/-1
+  /// defaults back would wipe a live coupon on every subject save.
+  /// [SubjectRepo.updateSubject] uses `update()`, which touches only the
+  /// keys [toMap] lists, so the document keeps them.
+  String couponCode = stringDefault;
+  double couponDiscount = doubleDefault;
+  int couponValidTill = intDefault;
+
   SubjectModel(
     this.courseCode,
     this.courseType,
@@ -71,5 +84,11 @@ class SubjectModel {
         isLocked = doc.data()!["isLocked"] ?? boolDefault,
         timeStamp = doc.data()!["created_at"] ?? intDefault,
         isPopular=doc.data()!["isPopular"] ?? boolDefault,
+        couponCode = doc.data()!["couponCode"] ?? stringDefault,
+        // Firestore hands a whole number back as an int, so cast through num
+        // rather than assuming double.
+        couponDiscount =
+            (doc.data()!["couponDiscount"] as num?)?.toDouble() ?? doubleDefault,
+        couponValidTill = doc.data()!["couponValidTill"] ?? intDefault,
         isSelected = false;
 }

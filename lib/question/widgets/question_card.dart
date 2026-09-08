@@ -1,4 +1,5 @@
 import 'package:bbarna/core/widgets/remove_alert.dart';
+import 'package:bbarna/core/widgets/selectable_label.dart';
 import 'package:bbarna/question/model/question.dart';
 import 'package:bbarna/question/model/question_draft.dart';
 import 'package:bbarna/question/question_viewmodel/question_viewmodel.dart';
@@ -103,7 +104,7 @@ class _QuestionCardState extends State<QuestionCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              SelectableLabel(
                 _data.questionCode.isEmpty ||
                         _data.questionCode == stringDefault
                     ? "No code"
@@ -115,10 +116,9 @@ class _QuestionCardState extends State<QuestionCard> {
                     color: AppTokens.inkMuted),
               ),
               const SizedBox(height: 3),
-              Text(
+              SelectableLabel(
                 text.isEmpty ? "No question text" : text,
                 maxLines: 2,
-                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                     fontSize: 13.5,
                     height: 1.35,

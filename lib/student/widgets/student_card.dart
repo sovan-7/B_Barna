@@ -1,4 +1,5 @@
 import 'package:bbarna/core/widgets/remove_alert.dart';
+import 'package:bbarna/core/widgets/selectable_label.dart';
 import 'package:bbarna/resources/app_tokens.dart';
 import 'package:bbarna/resources/constant.dart';
 import 'package:bbarna/student/model/student_model.dart';
@@ -91,9 +92,8 @@ class _StudentCardState extends State<StudentCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              SelectableLabel(
                 _value(_data.studentName, "Unnamed student"),
-                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                     fontSize: 14.5,
                     fontWeight: FontWeight.w600,
@@ -132,8 +132,7 @@ class _StudentCardState extends State<StudentCard> {
         // child still overflows the row it lands on.
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 240),
-          child: Text(label,
-              overflow: TextOverflow.ellipsis,
+          child: SelectableLabel(label,
               style:
                   const TextStyle(fontSize: 11.5, color: AppTokens.inkMuted)),
         ),

@@ -1,4 +1,5 @@
 import 'package:bbarna/core/widgets/remove_alert.dart';
+import 'package:bbarna/core/widgets/selectable_label.dart';
 import 'package:bbarna/live_class/model/live_class_model.dart';
 import 'package:bbarna/live_class/screen/edit_live_class.dart';
 import 'package:bbarna/live_class/viewModel/live_class_view_model.dart';
@@ -126,10 +127,9 @@ class _LiveClassCardState extends State<LiveClassCard> {
           ],
         ),
         const SizedBox(height: LiveClassTheme.gapSm),
-        Text(
+        SelectableLabel(
           _data.title,
           maxLines: 2,
-          overflow: TextOverflow.ellipsis,
           style: LiveClassTheme.cardTitle,
         ),
         const SizedBox(height: 10),
@@ -155,6 +155,11 @@ class _LiveClassCardState extends State<LiveClassCard> {
           ),
         ],
         if (hasLink) ...[
+          // Takes up whatever height this card was stretched to beyond its
+          // own content, so the link row lands on the same line in every
+          // card of the row instead of floating directly under a shorter
+          // block of text.
+          const Spacer(),
           const SizedBox(height: 12),
           _linkRow(),
         ],
@@ -215,6 +220,7 @@ class _LiveClassCardState extends State<LiveClassCard> {
   /// to check a stream is the single most common thing an admin does here.
   Widget _linkRow() {
     return Container(
+      key: Key('live_class_link_${_data.docId}'),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: LiveClassTheme.surfaceMuted,

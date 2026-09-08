@@ -1,3 +1,4 @@
+import 'package:bbarna/core/widgets/selectable_label.dart';
 import 'package:bbarna/question/model/question.dart';
 import 'package:bbarna/quiz/model/quiz_model.dart';
 import 'package:bbarna/quiz/repo/quiz_repo.dart';
@@ -339,6 +340,30 @@ void main() {
       expect(saved.totalQuestion, saved.questionCodeList.length);
       expect(saved.questionCodeList, ['Q-01', 'Q-02']);
     });
+
+  // The name and the code are what an admin pastes elsewhere -- into a
+  // search box, a spreadsheet, another module's form -- so they render as
+  // SelectableLabel rather than plain Text.
+  testWidgets('names and codes in the list are selectable', (tester) async {
+    await _pump(tester, const Size(1440, 900),
+        const Scaffold(body: QuizList()), QuizViewModel(quizRepo: repo));
+
+    final Iterable<SelectableLabel> labels =
+        tester.widgetList<SelectableLabel>(find.byType(SelectableLabel));
+    expect(labels, isNotEmpty);
+    for (final SelectableLabel label in labels) {
+      expect(label.data.trim(), isNotEmpty);
+    }
+    // Drag-select and Ctrl/Cmd-C come from the SelectableText each builds.
+    expect(
+      find.descendant(
+        of: find.byType(SelectableLabel),
+        matching: find.byType(SelectableText),
+      ),
+      findsWidgets,
+    );
+  });
+
   });
 
   group('the model', () {

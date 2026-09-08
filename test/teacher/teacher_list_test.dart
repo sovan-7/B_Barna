@@ -1,3 +1,4 @@
+import 'package:bbarna/core/widgets/selectable_label.dart';
 import 'package:bbarna/resources/constant.dart';
 import 'package:bbarna/teacher/model/teacher_model.dart';
 import 'package:bbarna/teacher/repo/teacher_repo.dart';
@@ -199,5 +200,29 @@ void main() {
       expect(await vm.deleteTeacher('jane_doe'), isFalse);
       expect(vm.teacherList.map((t) => t.username), contains('jane_doe'));
     });
+
+  // The name and the code are what an admin pastes elsewhere -- into a
+  // search box, a spreadsheet, another module's form -- so they render as
+  // SelectableLabel rather than plain Text.
+  testWidgets('names and codes in the list are selectable', (tester) async {
+    await _pump(tester, const Size(1440, 900),
+        TeacherViewModel(teacherRepo: repo));
+
+    final Iterable<SelectableLabel> labels =
+        tester.widgetList<SelectableLabel>(find.byType(SelectableLabel));
+    expect(labels, isNotEmpty);
+    for (final SelectableLabel label in labels) {
+      expect(label.data.trim(), isNotEmpty);
+    }
+    // Drag-select and Ctrl/Cmd-C come from the SelectableText each builds.
+    expect(
+      find.descendant(
+        of: find.byType(SelectableLabel),
+        matching: find.byType(SelectableText),
+      ),
+      findsWidgets,
+    );
+  });
+
   });
 }

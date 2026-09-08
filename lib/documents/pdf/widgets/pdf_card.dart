@@ -1,4 +1,5 @@
 import 'package:bbarna/core/widgets/remove_alert.dart';
+import 'package:bbarna/core/widgets/selectable_label.dart';
 import 'package:bbarna/documents/pdf/model/pdf_model.dart';
 import 'package:bbarna/documents/pdf/screen/edit_pdf.dart';
 import 'package:bbarna/documents/pdf/viewModel/pdf_view_model.dart';
@@ -107,9 +108,8 @@ class _PdfCardState extends State<PdfCard> {
               Row(
                 children: [
                   Flexible(
-                    child: Text(
+                    child: SelectableLabel(
                       _data.title,
-                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                           fontSize: 14.5,
                           fontWeight: FontWeight.w600,
@@ -185,7 +185,7 @@ class _PdfCardState extends State<PdfCard> {
         borderRadius: BorderRadius.circular(AppTokens.radiusSm),
         border: Border.all(color: AppTokens.hairline),
       ),
-      child: Text(_data.code,
+      child: SelectableLabel(_data.code,
           style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,

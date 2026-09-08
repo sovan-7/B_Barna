@@ -1,4 +1,5 @@
 import 'package:bbarna/core/widgets/remove_alert.dart';
+import 'package:bbarna/core/widgets/selectable_label.dart';
 import 'package:bbarna/resources/app_tokens.dart';
 import 'package:bbarna/resources/constant.dart';
 import 'package:bbarna/subject/model/subject_model.dart';
@@ -102,9 +103,8 @@ class _SubjectCardState extends State<SubjectCard> {
               Row(
                 children: [
                   Flexible(
-                    child: Text(
+                    child: SelectableLabel(
                       _data.name,
-                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                           fontSize: 14.5,
                           fontWeight: FontWeight.w600,
@@ -198,7 +198,7 @@ class _SubjectCardState extends State<SubjectCard> {
         borderRadius: BorderRadius.circular(AppTokens.radiusSm),
         border: Border.all(color: AppTokens.hairline),
       ),
-      child: Text(
+      child: SelectableLabel(
         _data.code,
         style: const TextStyle(
             fontSize: 11,
@@ -243,8 +243,11 @@ class _SubjectCardState extends State<SubjectCard> {
                     decoration: TextDecoration.lineThrough),
               ),
               const SizedBox(width: 5),
+              // Was "-25%", which reads as a negative discount. The value
+              // is always positive here (the discounted guard above needs
+              // list > selling > 0), so the minus was pure presentation.
               Text(
-                "-${(((list - selling) / list) * 100).round()}%",
+                "${(((list - selling) / list) * 100).round()}% OFF",
                 style: const TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w700,
@@ -260,11 +263,14 @@ class _SubjectCardState extends State<SubjectCard> {
   static String _money(double value) => "₹${value.toStringAsFixed(2)}";
 
   Widget _chips() {
+    final Widget? coupon = _couponChip();
+
     return Wrap(
       spacing: 6,
       runSpacing: 6,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
+        if (coupon != null) coupon,
         _statusChip(
           icon: Icons.low_priority,
           label: "Priority ${_data.displayPriority}",
@@ -305,6 +311,83 @@ class _SubjectCardState extends State<SubjectCard> {
         ),
       ],
     );
+  }
+
+  /// The coupon live on this subject, or null when there isn't one.
+  ///
+  /// Coupons are written outside this panel and were invisible here, so an
+  /// admin had no way to tell which subjects were discounted or whether a
+  /// code had already expired. The code itself is selectable, because
+  /// copying it into a message or a test checkout is the whole reason to
+  /// look at it.
+  Widget? _couponChip() {
+    final String code = _data.couponCode.trim();
+    if (code.isEmpty || code == stringDefault) return null;
+
+    final bool expired = _data.couponValidTill > 0 &&
+        _data.couponValidTill < DateTime.now().millisecondsSinceEpoch;
+    final Color color =
+        expired ? AppTokens.inkFaint : const Color(0xFFB54708);
+    // A flat rupee amount off the selling price, not a percentage — that is
+    // how the student app applies it at checkout.
+    final double off = _data.couponDiscount;
+
+    return Tooltip(
+      message: expired
+          ? "Coupon expired on ${_date(_data.couponValidTill)}"
+          : _data.couponValidTill > 0
+              ? "Valid until ${_date(_data.couponValidTill)}"
+              : "No expiry set",
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: expired
+              ? AppTokens.surfaceMuted
+              : color.withValues(alpha: .10),
+          borderRadius: BorderRadius.circular(AppTokens.radiusPill),
+          border: Border.all(
+              color: expired
+                  ? AppTokens.hairline
+                  : color.withValues(alpha: .28)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.local_offer_outlined, size: 12, color: color),
+            const SizedBox(width: 5),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 120),
+              child: SelectableLabel(
+                code,
+                style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                    color: color),
+              ),
+            ),
+            if (off > 0)
+              Text(" · ₹${off.toStringAsFixed(0)} off",
+                  style: TextStyle(fontSize: 11.5, color: color)),
+            if (expired)
+              Text(" · expired",
+                  style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: color)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _date(int millis) {
+    final DateTime d = DateTime.fromMillisecondsSinceEpoch(millis);
+    const List<String> months = [
+      '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${d.day} ${months[d.month]} ${d.year}';
   }
 
   Widget _statusChip({

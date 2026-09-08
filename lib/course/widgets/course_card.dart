@@ -1,4 +1,5 @@
 import 'package:bbarna/core/widgets/remove_alert.dart';
+import 'package:bbarna/core/widgets/selectable_label.dart';
 import 'package:bbarna/course/model/course_model.dart';
 import 'package:bbarna/course/screen/edit_course.dart';
 import 'package:bbarna/course/viewModel/course_view_model.dart';
@@ -96,9 +97,8 @@ class _CourseCardState extends State<CourseCard> {
               Row(
                 children: [
                   Flexible(
-                    child: Text(
+                    child: SelectableLabel(
                       _data.name,
-                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                           fontSize: 14.5,
                           fontWeight: FontWeight.w600,
@@ -165,7 +165,7 @@ class _CourseCardState extends State<CourseCard> {
         borderRadius: BorderRadius.circular(AppTokens.radiusSm),
         border: Border.all(color: AppTokens.hairline),
       ),
-      child: Text(
+      child: SelectableLabel(
         _data.code,
         style: const TextStyle(
             fontSize: 11,

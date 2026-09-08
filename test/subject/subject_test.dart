@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:bbarna/core/widgets/selectable_label.dart';
 import 'package:bbarna/course/model/course_model.dart';
 import 'package:bbarna/course/repo/course_repo.dart';
 import 'package:bbarna/course/viewModel/course_view_model.dart';
@@ -35,6 +36,9 @@ SubjectModel _subject(
   bool willDisplay = true,
   bool isLocked = false,
   bool isPopular = false,
+  String? couponCode,
+  double couponDiscount = 0,
+  int couponValidTill = 0,
 }) {
   final SubjectModel model = SubjectModel(
       "PHY-11",
@@ -52,6 +56,13 @@ SubjectModel _subject(
       isLocked,
       isPopular);
   model.docId = id;
+  // Written outside this panel and read-only here, so they are set on the
+  // built model rather than through the constructor.
+  if (couponCode != null) {
+    model.couponCode = couponCode;
+    model.couponDiscount = couponDiscount;
+    model.couponValidTill = couponValidTill;
+  }
   return model;
 }
 
@@ -213,7 +224,9 @@ void main() {
       // list price — the number nobody is charged.
       expect(find.text('₹750.00'), findsWidgets);
       expect(find.text('₹1000.00'), findsWidgets);
-      expect(find.text('-25%'), findsWidgets);
+      // Was rendered "-25%", which reads as a negative discount.
+      expect(find.text('25% OFF'), findsWidgets);
+      expect(find.text('-25%'), findsNothing);
     });
   });
 
@@ -376,5 +389,120 @@ void main() {
       // Editing must not silently drop the course a subject already names.
       expect(find.text('Physics — Class 11'), findsWidgets);
     });
+
+  // The name and the code are what an admin pastes elsewhere -- into a
+  // search box, a spreadsheet, another module's form -- so they render as
+  // SelectableLabel rather than plain Text.
+  testWidgets('names and codes in the list are selectable', (tester) async {
+    await _pump(tester, const Size(1440, 900),
+        const Scaffold(body: SubjectList()), SubjectViewModel(subjectRepo: repo));
+
+    final Iterable<SelectableLabel> labels =
+        tester.widgetList<SelectableLabel>(find.byType(SelectableLabel));
+    expect(labels, isNotEmpty);
+    for (final SelectableLabel label in labels) {
+      expect(label.data.trim(), isNotEmpty);
+    }
+    // Drag-select and Ctrl/Cmd-C come from the SelectableText each builds.
+    expect(
+      find.descendant(
+        of: find.byType(SelectableLabel),
+        matching: find.byType(SelectableText),
+      ),
+      findsWidgets,
+    );
+  });
+
+  /// Coupons live on the subject document and are written outside this
+  /// panel, so until now an admin had no way to see which subjects carried
+  /// one or whether a code had already lapsed.
+  group('the coupon', () {
+    final int now = DateTime.now().millisecondsSinceEpoch;
+
+    Future<void> pumpWith(WidgetTester tester, SubjectModel subject) async {
+      when(() => repo.getSubjectList()).thenAnswer((_) async => [subject]);
+      await _pump(tester, const Size(1440, 900),
+          const Scaffold(body: SubjectList()), SubjectViewModel(subjectRepo: repo));
+    }
+
+    testWidgets('the code is shown, and is selectable to copy',
+        (tester) async {
+      await pumpWith(
+        tester,
+        _subject('a', 'MECH', 'Mechanics',
+            couponCode: 'NEWYEAR50', couponDiscount: 100, couponValidTill: 0),
+      );
+
+      expect(find.text('NEWYEAR50'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+            (w) => w is SelectableLabel && w.data == 'NEWYEAR50'),
+        findsOneWidget,
+        reason: 'a coupon code exists to be copied somewhere else',
+      );
+    });
+
+    testWidgets('the saving is a rupee amount, not a percentage',
+        (tester) async {
+      await pumpWith(
+        tester,
+        _subject('a', 'MECH', 'Mechanics',
+            couponCode: 'NEWYEAR50', couponDiscount: 100),
+      );
+
+      // The student app applies it as sellingPrice - couponDiscount.
+      expect(find.text(' · ₹100 off'), findsOneWidget);
+    });
+
+    testWidgets('a lapsed coupon is called out rather than advertised',
+        (tester) async {
+      await pumpWith(
+        tester,
+        _subject('a', 'MECH', 'Mechanics',
+            couponCode: 'OLDCODE',
+            couponDiscount: 50,
+            couponValidTill: now - const Duration(days: 2).inMilliseconds),
+      );
+
+      expect(find.text('OLDCODE'), findsOneWidget);
+      expect(find.text(' · expired'), findsOneWidget);
+    });
+
+    testWidgets('a coupon still in date is not marked expired',
+        (tester) async {
+      await pumpWith(
+        tester,
+        _subject('a', 'MECH', 'Mechanics',
+            couponCode: 'LIVECODE',
+            couponDiscount: 50,
+            couponValidTill: now + const Duration(days: 2).inMilliseconds),
+      );
+
+      expect(find.text('LIVECODE'), findsOneWidget);
+      expect(find.text(' · expired'), findsNothing);
+    });
+
+    testWidgets('a subject with no coupon shows no chip', (tester) async {
+      await pumpWith(tester, _subject('a', 'MECH', 'Mechanics'));
+
+      expect(find.byIcon(Icons.local_offer_outlined), findsNothing);
+    });
+
+    test('saving a subject cannot wipe the coupon', () {
+      final SubjectModel subject = _subject('a', 'MECH', 'Mechanics',
+          couponCode: 'NEWYEAR50', couponDiscount: 100, couponValidTill: 999);
+
+      // There is no coupon editor in this panel, so toMap must not carry the
+      // coupon keys — updateSubject uses update(), which only touches the
+      // keys toMap lists. If they appeared here, every subject save would
+      // overwrite a live coupon with this panel's defaults.
+      final Map<String, dynamic> written = subject.toMap();
+      expect(written.containsKey('couponCode'), isFalse);
+      expect(written.containsKey('couponDiscount'), isFalse);
+      expect(written.containsKey('couponValidTill'), isFalse);
+    });
+  });
+
+
   });
 }
