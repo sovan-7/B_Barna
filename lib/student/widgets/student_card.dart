@@ -323,8 +323,7 @@ class _StudentCardState extends State<StudentCard> {
         Navigator.pop(navigatorKey.currentContext!);
         final bool success = await studentViewModel.deleteStudent(studentId);
         if (success) {
-          Helper.showSnackBarMessage(
-              msg: "Student deleted successfully", isSuccess: false);
+          Helper.showInfoMessage(msg: "Student deleted successfully");
         }
       },
     );

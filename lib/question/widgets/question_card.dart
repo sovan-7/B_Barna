@@ -272,8 +272,7 @@ class _QuestionCardState extends State<QuestionCard> {
         Navigator.pop(navigatorKey.currentContext!);
         final bool success = await questionViewModel.deleteQuestion(docId);
         if (success) {
-          Helper.showSnackBarMessage(
-              msg: "Question deleted successfully", isSuccess: false);
+          Helper.showInfoMessage(msg: "Question deleted successfully");
         }
       },
     );

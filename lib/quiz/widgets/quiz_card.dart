@@ -314,8 +314,7 @@ class _QuizCardState extends State<QuizCard> {
         Navigator.pop(navigatorKey.currentContext!);
         final bool success = await quizViewModel.deleteQuiz(docId);
         if (success) {
-          Helper.showSnackBarMessage(
-              msg: "Quiz deleted successfully", isSuccess: false);
+          Helper.showInfoMessage(msg: "Quiz deleted successfully");
           widget.onChanged();
         }
       },

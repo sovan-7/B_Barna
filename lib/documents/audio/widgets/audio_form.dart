@@ -157,8 +157,7 @@ class _AudioFormState extends State<AudioForm> {
         if (!mounted) return;
         setState(() => _isSaving = false);
         if (success) {
-          Helper.showSnackBarMessage(
-              msg: "Audio deleted successfully", isSuccess: false);
+          Helper.showInfoMessage(msg: "Audio deleted successfully");
           Navigator.pop(context);
         }
       },

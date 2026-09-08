@@ -257,8 +257,7 @@ class _SubjectFormState extends State<SubjectForm> {
         if (!mounted) return;
         setState(() => _isSaving = false);
         if (success) {
-          Helper.showSnackBarMessage(
-              msg: "Subject deleted successfully", isSuccess: false);
+          Helper.showInfoMessage(msg: "Subject deleted successfully");
           Navigator.pop(context);
         }
       },

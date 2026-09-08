@@ -163,8 +163,7 @@ class _PdfFormState extends State<PdfForm> {
         if (!mounted) return;
         setState(() => _isSaving = false);
         if (success) {
-          Helper.showSnackBarMessage(
-              msg: "PDF deleted successfully", isSuccess: false);
+          Helper.showInfoMessage(msg: "PDF deleted successfully");
           Navigator.pop(context);
         }
       },

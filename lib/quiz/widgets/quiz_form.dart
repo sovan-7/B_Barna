@@ -208,8 +208,7 @@ class _QuizFormState extends State<QuizForm> {
         if (!mounted) return;
         setState(() => _isSaving = false);
         if (success) {
-          Helper.showSnackBarMessage(
-              msg: "Quiz deleted successfully", isSuccess: false);
+          Helper.showInfoMessage(msg: "Quiz deleted successfully");
           Navigator.pop(context);
         }
       },

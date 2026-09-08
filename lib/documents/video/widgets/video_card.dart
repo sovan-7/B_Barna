@@ -303,8 +303,7 @@ class _VideoCardState extends State<VideoCard> {
         Navigator.pop(navigatorKey.currentContext!);
         final bool success = await videoViewModel.deleteVideo(docId);
         if (success) {
-          Helper.showSnackBarMessage(
-              msg: "Video deleted successfully", isSuccess: false);
+          Helper.showInfoMessage(msg: "Video deleted successfully");
           widget.onChanged();
         }
       },

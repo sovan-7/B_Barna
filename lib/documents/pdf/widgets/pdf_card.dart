@@ -388,8 +388,7 @@ class _PdfCardState extends State<PdfCard> {
         Navigator.pop(navigatorKey.currentContext!);
         final bool success = await pdfViewModel.deletePdf(docId);
         if (success) {
-          Helper.showSnackBarMessage(
-              msg: "PDF deleted successfully", isSuccess: false);
+          Helper.showInfoMessage(msg: "PDF deleted successfully");
           widget.onChanged();
         }
       },

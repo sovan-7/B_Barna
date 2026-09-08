@@ -162,8 +162,7 @@ class _VideoFormState extends State<VideoForm> {
         if (!mounted) return;
         setState(() => _isSaving = false);
         if (success) {
-          Helper.showSnackBarMessage(
-              msg: "Video deleted successfully", isSuccess: false);
+          Helper.showInfoMessage(msg: "Video deleted successfully");
           Navigator.pop(context);
         }
       },

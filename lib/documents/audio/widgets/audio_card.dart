@@ -304,8 +304,7 @@ class _AudioCardState extends State<AudioCard> {
         Navigator.pop(navigatorKey.currentContext!);
         final bool success = await audioViewModel.deleteAudio(docId);
         if (success) {
-          Helper.showSnackBarMessage(
-              msg: "Audio deleted successfully", isSuccess: false);
+          Helper.showInfoMessage(msg: "Audio deleted successfully");
           widget.onChanged();
         }
       },

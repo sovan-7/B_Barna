@@ -315,8 +315,7 @@ class _LiveClassCardState extends State<LiveClassCard> {
         final bool success =
             await liveClassViewModel.deleteLiveClass(_data.docId);
         if (success) {
-          Helper.showSnackBarMessage(
-              msg: "Class deleted successfully", isSuccess: false);
+          Helper.showInfoMessage(msg: "Class deleted successfully");
           await liveClassViewModel.getLiveClassList();
         }
       },

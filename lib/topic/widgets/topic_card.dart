@@ -366,8 +366,7 @@ class _TopicCardState extends State<TopicCard> {
         Navigator.pop(navigatorKey.currentContext!);
         final bool success = await topicViewModel.deleteTopic(docId);
         if (success) {
-          Helper.showSnackBarMessage(
-              msg: "Topic deleted successfully", isSuccess: false);
+          Helper.showInfoMessage(msg: "Topic deleted successfully");
           widget.onChanged();
         }
       },

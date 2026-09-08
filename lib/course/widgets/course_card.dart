@@ -358,8 +358,7 @@ class _CourseCardState extends State<CourseCard> {
         Navigator.pop(navigatorKey.currentContext!);
         final bool success = await courseViewModel.deleteCourse(docId);
         if (success) {
-          Helper.showSnackBarMessage(
-              msg: "Course deleted successfully", isSuccess: false);
+          Helper.showInfoMessage(msg: "Course deleted successfully");
           await courseViewModel.getCourseList();
         }
       },

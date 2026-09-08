@@ -239,8 +239,7 @@ class _UnitFormState extends State<UnitForm> {
         if (!mounted) return;
         setState(() => _isSaving = false);
         if (success) {
-          Helper.showSnackBarMessage(
-              msg: "Unit deleted successfully", isSuccess: false);
+          Helper.showInfoMessage(msg: "Unit deleted successfully");
           Navigator.pop(context);
         }
       },

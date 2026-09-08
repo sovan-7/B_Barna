@@ -459,8 +459,7 @@ class _SubjectCardState extends State<SubjectCard> {
         Navigator.pop(navigatorKey.currentContext!);
         final bool success = await subjectViewModel.deleteSubject(docId);
         if (success) {
-          Helper.showSnackBarMessage(
-              msg: "Subject deleted successfully", isSuccess: false);
+          Helper.showInfoMessage(msg: "Subject deleted successfully");
           await subjectViewModel.getSubjectList();
         }
       },

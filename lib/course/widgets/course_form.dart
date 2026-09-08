@@ -181,8 +181,7 @@ class _CourseFormState extends State<CourseForm> {
         if (!mounted) return;
         setState(() => _isSaving = false);
         if (success) {
-          Helper.showSnackBarMessage(
-              msg: "Course deleted successfully", isSuccess: false);
+          Helper.showInfoMessage(msg: "Course deleted successfully");
           Navigator.pop(context);
         }
       },

@@ -294,8 +294,7 @@ class StudentViewModel with ChangeNotifier {
       if (enrolment.enrolledCourseList.isNotEmpty) {
         await _studentRepo.updateEnrolment(enrolment.docId, enrolment.toMap());
         Navigator.pop(navigatorKey.currentContext!);
-        Helper.showSnackBarMessage(
-            msg: "Course removed successfully", isSuccess: false);
+        Helper.showInfoMessage(msg: "Course removed successfully");
       } else {
         await _studentRepo.deleteEnrolment(enrolment.docId);
         Navigator.pop(navigatorKey.currentContext!);

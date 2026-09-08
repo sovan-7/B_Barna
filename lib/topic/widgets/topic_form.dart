@@ -230,8 +230,7 @@ class _TopicFormState extends State<TopicForm> {
         if (!mounted) return;
         setState(() => _isSaving = false);
         if (success) {
-          Helper.showSnackBarMessage(
-              msg: "Topic deleted successfully", isSuccess: false);
+          Helper.showInfoMessage(msg: "Topic deleted successfully");
           Navigator.pop(context);
         }
       },

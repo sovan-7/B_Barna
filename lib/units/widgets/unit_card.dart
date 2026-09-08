@@ -384,8 +384,7 @@ class _UnitCardState extends State<UnitCard> {
         Navigator.pop(navigatorKey.currentContext!);
         final bool success = await unitViewModel.deleteUnit(docId);
         if (success) {
-          Helper.showSnackBarMessage(
-              msg: "Unit deleted successfully", isSuccess: false);
+          Helper.showInfoMessage(msg: "Unit deleted successfully");
           widget.onChanged();
         }
       },

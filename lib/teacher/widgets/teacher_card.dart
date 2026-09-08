@@ -321,8 +321,7 @@ class _TeacherCardState extends State<TeacherCard> {
         Navigator.pop(navigatorKey.currentContext!);
         final bool success = await teacherViewModel.deleteTeacher(username);
         if (success) {
-          Helper.showSnackBarMessage(
-              msg: "Teacher deleted successfully", isSuccess: false);
+          Helper.showInfoMessage(msg: "Teacher deleted successfully");
         }
       },
     );

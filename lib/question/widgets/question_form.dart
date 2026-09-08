@@ -156,8 +156,7 @@ class _QuestionFormState extends State<QuestionForm> {
         if (!mounted) return;
         setState(() => _isSaving = false);
         if (success) {
-          Helper.showSnackBarMessage(
-              msg: "Question deleted successfully", isSuccess: false);
+          Helper.showInfoMessage(msg: "Question deleted successfully");
           Navigator.pop(context);
         }
       },

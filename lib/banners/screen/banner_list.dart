@@ -172,8 +172,7 @@ class _BannerListState extends State<BannerList> {
         Navigator.pop(navigatorKey.currentContext!);
         final bool success = await bannersViewModel.deleteBanner(docId);
         if (success) {
-          Helper.showSnackBarMessage(
-              msg: "Banner deleted successfully", isSuccess: false);
+          Helper.showInfoMessage(msg: "Banner deleted successfully");
           await bannersViewModel.getBannerList();
         }
       },

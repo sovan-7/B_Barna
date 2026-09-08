@@ -212,8 +212,7 @@ class _LiveClassFormState extends State<LiveClassForm> {
         if (!mounted) return;
         setState(() => _isSaving = false);
         if (success) {
-          Helper.showSnackBarMessage(
-              msg: "Class deleted successfully", isSuccess: false);
+          Helper.showInfoMessage(msg: "Class deleted successfully");
           // Back to the list.
           Navigator.pop(context);
         }
