@@ -12,6 +12,15 @@ class QuestionRichField extends StatelessWidget {
   final String label;
   final HtmlEditorController controller;
 
+  /// The HTML the editor opens with.
+  ///
+  /// This is the *only* hook that prefills one of these: the package
+  /// applies it inside the iframe's `onLoad`, once the editor exists.
+  /// Calling `controller.setText` from `initState` or a post-frame callback
+  /// runs long before that and is dropped — which is why opening a question
+  /// for editing showed eight empty boxes.
+  final String? initialText;
+
   /// Shown under the label — what this field is for, when that is not
   /// obvious from two words.
   final String? hint;
@@ -24,6 +33,7 @@ class QuestionRichField extends StatelessWidget {
   const QuestionRichField({
     required this.label,
     required this.controller,
+    this.initialText,
     this.hint,
     this.error,
     this.height = 180,
@@ -97,13 +107,16 @@ class QuestionRichField extends StatelessWidget {
                   InsertButtons(video: false, audio: false, table: false, hr: false),
                 ],
               ),
-              htmlEditorOptions: const HtmlEditorOptions(
+              htmlEditorOptions: HtmlEditorOptions(
                 hint: "Type here…",
                 autoAdjustHeight: false,
                 spellCheck: true,
                 adjustHeightForKeyboard: false,
                 androidUseHybridComposition: false,
-                initialText: "",
+                // Was hard-coded to "". The package applies this on load,
+                // *after* anything an earlier setText managed to write, so
+                // an empty string here blanked the editor either way.
+                initialText: initialText,
               ),
               otherOptions:
                   OtherOptions(height: height, decoration: const BoxDecoration()),

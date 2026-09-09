@@ -45,6 +45,10 @@ class _QuestionFormState extends State<QuestionForm> {
   final HtmlEditorController hintController = HtmlEditorController();
   final HtmlEditorController solutionController = HtmlEditorController();
 
+  /// What the form opens with. For an edit that is the stored question; for
+  /// an add it is empty.
+  late final QuestionDraft _initial;
+
   QuestionOption? _answer;
   bool _isSaving = false;
 
@@ -54,23 +58,17 @@ class _QuestionFormState extends State<QuestionForm> {
   void initState() {
     super.initState();
     final Question? existing = widget.existing;
-    if (existing != null) {
-      codeController.text = existing.questionCode;
-      _answer = QuestionDraft.answerOf(existing);
-      // The editors are webviews and are not ready until they have loaded,
-      // so their text is set once the first frame is up.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        questionController.setText(existing.question);
-        questionBodyController.setText(existing.questionBody);
-        optionAController.setText(existing.option1);
-        optionBController.setText(existing.option2);
-        optionCController.setText(existing.option3);
-        optionDController.setText(existing.option4);
-        hintController.setText(existing.hints);
-        solutionController.setText(existing.solution);
-      });
-    }
+    _initial = existing == null
+        ? const QuestionDraft()
+        : QuestionDraft.fromQuestion(existing);
+    codeController.text = _initial.code;
+    _answer = _initial.answer;
+
+    // The editors are seeded through `initialText` on each field, not from
+    // here. A post-frame `controller.setText` used to do it, and never
+    // worked: the editors are webviews, and the package only accepts
+    // content once the iframe has loaded — well after the first frame. So
+    // every field opened blank, whatever the question held.
   }
 
   @override
@@ -228,6 +226,7 @@ class _QuestionFormState extends State<QuestionForm> {
                       QuestionRichField(
                         label: "Question",
                         controller: questionController,
+                        initialText: _initial.question,
                         error: _errors[QuestionField.question],
                       ),
                       const SizedBox(height: AppTokens.gapLg),
@@ -236,6 +235,7 @@ class _QuestionFormState extends State<QuestionForm> {
                         hint:
                             "Extra material shown above the question. Optional.",
                         controller: questionBodyController,
+                        initialText: _initial.questionBody,
                         height: 160,
                       ),
                     ]),
@@ -247,6 +247,7 @@ class _QuestionFormState extends State<QuestionForm> {
                         label: "Hint",
                         hint: "Shown to a student who asks for help. Optional.",
                         controller: hintController,
+                        initialText: _initial.hints,
                         height: 150,
                       ),
                       const SizedBox(height: AppTokens.gapLg),
@@ -254,6 +255,7 @@ class _QuestionFormState extends State<QuestionForm> {
                         label: "Solution",
                         hint: "The worked explanation. Optional.",
                         controller: solutionController,
+                        initialText: _initial.solution,
                         height: 200,
                       ),
                     ]),
@@ -341,6 +343,7 @@ class _QuestionFormState extends State<QuestionForm> {
           QuestionRichField(
             label: "Option ${option.label}",
             controller: _controllerFor(option),
+            initialText: _initial.optionFor(option),
             error: _errors[option.field],
             height: 130,
             trailing: _correctToggle(option),

@@ -1,4 +1,5 @@
 import 'package:bbarna/question/model/question.dart';
+import 'package:bbarna/resources/constant.dart';
 
 /// Which option a question's answer points at.
 enum QuestionOption { a, b, c, d }
@@ -50,6 +51,30 @@ class QuestionDraft {
     this.solution = "",
     this.answer,
   });
+
+  /// The draft an edit form opens with.
+  ///
+  /// Split out from the form because the form cannot be mounted in a test —
+  /// its fields are `html_editor_enhanced` webviews — so this is the only
+  /// place the "editing shows the stored question" rule can be pinned down.
+  factory QuestionDraft.fromQuestion(Question question) => QuestionDraft(
+        code: _blankDefault(question.questionCode),
+        question: _blankDefault(question.question),
+        questionBody: _blankDefault(question.questionBody),
+        optionA: _blankDefault(question.option1),
+        optionB: _blankDefault(question.option2),
+        optionC: _blankDefault(question.option3),
+        optionD: _blankDefault(question.option4),
+        hints: _blankDefault(question.hints),
+        solution: _blankDefault(question.solution),
+        answer: answerOf(question),
+      );
+
+  /// A field that was never set reads back as [stringDefault] ("NA"). That
+  /// is a placeholder, not content — putting it in an editor would have the
+  /// admin deleting the letters N and A out of every empty field.
+  static String _blankDefault(String value) =>
+      value == stringDefault ? "" : value;
 
   String optionFor(QuestionOption option) => switch (option) {
         QuestionOption.a => optionA,

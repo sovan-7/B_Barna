@@ -174,6 +174,94 @@ void main() {
     });
   });
 
+  group('opening a question for editing', () {
+    // The form's fields are `html_editor_enhanced` webviews and cannot be
+    // mounted in a test, so this is where "edit shows what was saved" is
+    // pinned. The form seeds each editor from this draft.
+    Question stored() => Question(
+          docId: 'q1',
+          questionCode: 'PHY-01',
+          question: '<p>What is the SI unit of force?</p>',
+          questionBody: '<p>Refer to the diagram above.</p>',
+          option1: '<p>Newton</p>',
+          option2: '<p>Joule</p>',
+          option3: '<p>Watt</p>',
+          option4: '<p>Pascal</p>',
+          answer: '<p>Newton</p>',
+          hints: '<p>Think of F = ma.</p>',
+          solution: '<p>Force is measured in newtons.</p>',
+          timeStamp: 42,
+        );
+
+    test('carries every field the form has to fill', () {
+      final QuestionDraft draft = QuestionDraft.fromQuestion(stored());
+
+      // Every one of these opened blank: the editors were prefilled from a
+      // post-frame `setText`, which runs before the webview exists.
+      expect(draft.code, 'PHY-01');
+      expect(draft.question, '<p>What is the SI unit of force?</p>');
+      expect(draft.questionBody, '<p>Refer to the diagram above.</p>');
+      expect(draft.optionA, '<p>Newton</p>');
+      expect(draft.optionB, '<p>Joule</p>');
+      expect(draft.optionC, '<p>Watt</p>');
+      expect(draft.optionD, '<p>Pascal</p>');
+      expect(draft.hints, '<p>Think of F = ma.</p>');
+      expect(draft.solution, '<p>Force is measured in newtons.</p>');
+    });
+
+    test('marks the option the stored answer points at', () {
+      expect(QuestionDraft.fromQuestion(stored()).answer, QuestionOption.a);
+    });
+
+    test('what it opens with is what it would save back', () {
+      // Reopening and saving without touching anything must not change the
+      // document.
+      final Question original = stored();
+      final Map<String, dynamic> map =
+          QuestionDraft.fromQuestion(original).toMap(timeStamp: 42);
+
+      expect(map['question_code'], original.questionCode);
+      expect(map['question'], original.question);
+      expect(map['question_body'], original.questionBody);
+      expect(map['option1'], original.option1);
+      expect(map['option4'], original.option4);
+      expect(map['hints'], original.hints);
+      expect(map['solution'], original.solution);
+      expect(map['answer'], original.answer);
+    });
+
+    test('an unset field opens empty, not as the string "NA"', () {
+      // Question.fromDocumentSnapshot defaults missing fields to
+      // stringDefault. Seeding an editor with that would have the admin
+      // deleting "NA" out of every optional box.
+      final QuestionDraft draft = QuestionDraft.fromQuestion(Question(
+        docId: 'q2',
+        questionCode: 'PHY-02',
+        question: '<p>Q</p>',
+        questionBody: stringDefault,
+        hints: stringDefault,
+        solution: stringDefault,
+        option1: '<p>a</p>',
+        option2: '<p>b</p>',
+        option3: '<p>c</p>',
+        option4: '<p>d</p>',
+        answer: '<p>a</p>',
+      ));
+
+      expect(draft.questionBody, '');
+      expect(draft.hints, '');
+      expect(draft.solution, '');
+    });
+
+    test('adding opens with nothing filled in', () {
+      const QuestionDraft draft = QuestionDraft();
+
+      expect(draft.code, '');
+      expect(draft.question, '');
+      expect(draft.answer, isNull);
+    });
+  });
+
   group('answerOf', () {
     test('finds the option the stored answer matches', () {
       expect(QuestionDraft.answerOf(_question('a', 'X')), QuestionOption.a);
