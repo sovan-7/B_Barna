@@ -6,6 +6,34 @@ import 'package:bbarna/subject/model/subject_model.dart';
 import 'package:bbarna/units/model/unit_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// How the student list is ordered.
+enum StudentSort {
+  /// Alphabetical. Every student has a name, so this page never omits one.
+  name,
+
+  /// Most recently signed in first.
+  ///
+  /// Ordered on `login_time`, which means Firestore returns **only** the
+  /// students that have the field at all — anyone who has never opened the
+  /// app is absent from the query, not merely last. The list says so rather
+  /// than pretending the collection is smaller than it is.
+  lastActive,
+}
+
+extension StudentSortField on StudentSort {
+  String get field => switch (this) {
+        StudentSort.name => "name",
+        StudentSort.lastActive => "login_time",
+      };
+
+  bool get descending => this == StudentSort.lastActive;
+
+  String get label => switch (this) {
+        StudentSort.name => "Name",
+        StudentSort.lastActive => "Last active",
+      };
+}
+
 class StudentRepo {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -13,20 +41,41 @@ class StudentRepo {
   /// type — so a view model that held it could not be faked in a test.
   DocumentSnapshot<Map<String, dynamic>>? _cursor;
 
-  /// First page, by name. Resets the cursor.
+  /// The ordering the cursor belongs to. Changing sort has to reset paging:
+  /// a cursor from the name query is meaningless to the login_time one.
+  StudentSort _sort = StudentSort.name;
+
+  /// First page in [sort]. Resets the cursor.
   ///
   /// The paging queries were written inline in the view model against a
   /// second `FirebaseFirestore.instance`; they belong here.
-  Future<List<Student>> getFirstStudentList(int limit) async {
+  Future<List<Student>> getFirstStudentList(int limit,
+      {StudentSort sort = StudentSort.name}) async {
+    _sort = sort;
     final QuerySnapshot<Map<String, dynamic>> snapshot = await _firestore
         .collection(student)
-        .orderBy("name", descending: false)
+        .orderBy(sort.field, descending: sort.descending)
         .limit(limit)
         .get();
     _cursor = snapshot.docs.isEmpty ? null : snapshot.docs.last;
     return snapshot.docs
         .map((doc) => Student.fromDocumentSnapshot(doc))
         .toList();
+  }
+
+  /// How many students the `login_time` ordering can actually return.
+  ///
+  /// Firestore drops documents missing the field being ordered on, so this
+  /// is what "Last active" will list — compare it with
+  /// [getStudentListLength] to know how many students are unreachable that
+  /// way because they have never signed in.
+  Future<int> getSignedInStudentCount() async {
+    final AggregateQuerySnapshot countSnapshot = await _firestore
+        .collection(student)
+        .orderBy("login_time")
+        .count()
+        .get();
+    return countSnapshot.count ?? 0;
   }
 
   /// The page after the last one returned. Empty when there is no cursor
@@ -37,7 +86,7 @@ class StudentRepo {
 
     final QuerySnapshot<Map<String, dynamic>> snapshot = await _firestore
         .collection(student)
-        .orderBy("name", descending: false)
+        .orderBy(_sort.field, descending: _sort.descending)
         .startAfterDocument(cursor)
         .limit(limit)
         .get();

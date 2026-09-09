@@ -1,5 +1,6 @@
 import 'package:bbarna/core/widgets/paged_list_footer.dart';
 import 'package:bbarna/student/model/student_model.dart';
+import 'package:bbarna/student/repo/student_repo.dart';
 import 'package:bbarna/student/viewModel/student_viewmodel.dart';
 import 'package:bbarna/student/widgets/student_card.dart';
 import 'package:bbarna/resources/app_tokens.dart';
@@ -49,16 +50,20 @@ class _StudentListState extends State<StudentList> {
               _header(studentViewModel),
               const SizedBox(height: AppTokens.gapMd),
               _search(studentViewModel),
+              if (studentViewModel.studentsNeverSignedIn > 0) ...[
+                const SizedBox(height: AppTokens.gapSm),
+                _neverSignedInNote(studentViewModel),
+              ],
               const SizedBox(height: AppTokens.gapMd),
               Expanded(child: _body(studentViewModel)),
               if (!studentViewModel.isLoading &&
                   studentViewModel.studentList.isNotEmpty)
                 PagedListFooter(
                   shown: studentViewModel.studentList.length,
-                  total: studentViewModel.studentListLength,
                   isSearching: studentViewModel.isSearching,
                   hasMore: studentViewModel.hasMore,
                   isLoadingMore: studentViewModel.isLoadingMore,
+                  total: studentViewModel.reachableTotal,
                   pageSize: studentViewModel.limit,
                   onLoadMore: studentViewModel.fetchNextStudentList,
                 ),
@@ -103,12 +108,107 @@ class _StudentListState extends State<StudentList> {
                 ],
               ),
               const SizedBox(height: 3),
-              const Text("By name. Search filters the students already loaded.",
+              Text(
+                  studentViewModel.sort == StudentSort.lastActive
+                      ? "Most recently active first. Search filters the "
+                          "students already loaded."
+                      : "By name. Search filters the students already loaded.",
                   style: AppTokens.pageSubtitle),
             ],
           ),
         ),
+        const SizedBox(width: AppTokens.gapMd),
+        _sortToggle(studentViewModel),
       ],
+    );
+  }
+
+  /// Name or last active. Two segments rather than a dropdown: there are
+  /// only ever two, and which one is on should be readable without opening
+  /// anything.
+  Widget _sortToggle(StudentViewModel studentViewModel) {
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: AppTokens.surfaceMuted,
+        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        border: Border.all(color: AppTokens.hairline),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final StudentSort option in StudentSort.values)
+            _sortSegment(studentViewModel, option),
+        ],
+      ),
+    );
+  }
+
+  Widget _sortSegment(StudentViewModel studentViewModel, StudentSort option) {
+    final bool selected = studentViewModel.sort == option;
+
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+      child: InkWell(
+        key: Key('student_sort_${option.name}'),
+        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+        onTap: selected ? null : () => studentViewModel.setSort(option),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          decoration: BoxDecoration(
+            color: selected ? AppTokens.surface : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+            border: Border.all(
+                color: selected ? AppTokens.hairline : Colors.transparent),
+            boxShadow: selected ? AppTokens.cardShadow : null,
+          ),
+          child: Text(
+            option.label,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              color: selected ? AppTokens.ink : AppTokens.inkMuted,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Sorting on `login_time` makes Firestore omit every student that has
+  /// never signed in — they are absent from the query, not merely last.
+  /// Saying so is the difference between a shorter list and a list that has
+  /// quietly lost people.
+  Widget _neverSignedInNote(StudentViewModel studentViewModel) {
+    final int count = studentViewModel.studentsNeverSignedIn;
+
+    return Container(
+      key: const Key('student_never_signed_in_note'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: AppTokens.surfaceMuted,
+        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+        border: Border.all(color: AppTokens.hairline),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline, size: 14, color: AppTokens.inkFaint),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              count == 1
+                  ? "1 student has never signed in and is not listed here. "
+                      "Sort by name to see them."
+                  : "$count students have never signed in and are not listed "
+                      "here. Sort by name to see them.",
+              style: const TextStyle(
+                  fontSize: 12, height: 1.35, color: AppTokens.inkMuted),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

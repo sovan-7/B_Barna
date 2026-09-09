@@ -72,6 +72,18 @@ class Student {
             ? Address.fromMap(doc.data()!["address"])
             : Address(stringDefault, stringDefault, stringDefault,
                 stringDefault, stringDefault);
+
+  /// When the student last opened the app, or null if they never have.
+  ///
+  /// `login_time` is read straight off the document as an int and was, until
+  /// now, displayed nowhere. It arrives as [intDefault] (-1) when the field
+  /// is missing and 0 from a document that was backfilled, so both are
+  /// "never" rather than 1 January 1970.
+  DateTime? get lastLoginAt {
+    final int? millis = loginTime;
+    if (millis == null || millis <= 0) return null;
+    return DateTime.fromMillisecondsSinceEpoch(millis);
+  }
 }
 
 class Address {

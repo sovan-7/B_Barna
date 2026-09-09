@@ -33,7 +33,35 @@ class StudentViewModel with ChangeNotifier {
   /// fields at once. The list says so.
   bool isSearching = false;
 
-  bool get hasMore => !isSearching && studentList.length < studentListLength;
+  /// How the list is ordered.
+  StudentSort sort = StudentSort.name;
+
+  /// How many students the `login_time` ordering can return. Only fetched
+  /// while sorting by last active, where it is what the page count means.
+  int signedInStudentCount = 0;
+
+  /// Students the "Last active" ordering cannot reach, because Firestore
+  /// omits documents missing the field it orders on. Zero for the name
+  /// ordering, which every student has.
+  int get studentsNeverSignedIn => sort == StudentSort.lastActive
+      ? (studentListLength - signedInStudentCount).clamp(0, studentListLength)
+      : 0;
+
+  /// The total the footer is counting towards. Sorting by last active can
+  /// only ever list the students that have signed in, so counting towards
+  /// the whole collection would leave "Showing 40 of 52" stuck forever.
+  ///
+  /// Never below what is already on screen: the page and the count are two
+  /// separate queries, and a student signing in between them would
+  /// otherwise be reported as "Showing 4 of 3".
+  int get reachableTotal {
+    final int total = sort == StudentSort.lastActive
+        ? signedInStudentCount
+        : studentListLength;
+    return total < studentList.length ? studentList.length : total;
+  }
+
+  bool get hasMore => !isSearching && studentList.length < reachableTotal;
 
   // ---- Enrolment (used by the student settings screens) ---------------
   List<CourseModel> courseList = [];
@@ -80,14 +108,26 @@ class StudentViewModel with ChangeNotifier {
 
   // ---- The list -------------------------------------------------------
 
+  /// Re-orders the list. Paging restarts: a cursor from one ordering means
+  /// nothing to the other.
+  Future<void> setSort(StudentSort next) async {
+    if (sort == next) return;
+    sort = next;
+    notifyListeners();
+    await fetchFirstStudentList();
+  }
+
   Future<void> fetchFirstStudentList() async {
     isLoading = true;
     isSearching = false;
     notifyListeners();
     try {
-      studentList = await _studentRepo.getFirstStudentList(limit);
+      studentList = await _studentRepo.getFirstStudentList(limit, sort: sort);
       copyStudentList = List<Student>.from(studentList);
       studentListLength = await _studentRepo.getStudentListLength();
+      if (sort == StudentSort.lastActive) {
+        signedInStudentCount = await _studentRepo.getSignedInStudentCount();
+      }
     } catch (e) {
       Helper.showSnackBarMessage(
           msg: "Error while fetching students", isSuccess: false);

@@ -7,6 +7,7 @@ import 'package:bbarna/course/model/course_model.dart';
 import 'package:bbarna/student/screen/settings_student.dart';
 import 'package:bbarna/student/screen/student_list.dart';
 import 'package:bbarna/student/widgets/enrolment_validity.dart';
+import 'package:bbarna/student/widgets/student_activity.dart';
 import 'package:bbarna/student/widgets/unit_picker_dialog.dart';
 import 'package:bbarna/units/model/unit_model.dart';
 import 'package:bbarna/student/viewModel/student_viewmodel.dart';
@@ -22,17 +23,20 @@ Student _student(
   String id,
   String name, {
   String phone = "9876543210",
+  String? whatsapp,
   String email = "a@example.com",
   dynamic devices = 0,
+  int? loginTime,
 }) =>
     Student(
       studentId: id,
       studentName: name,
       studentProfileImage: "",
       studentPhoneNumber: phone,
-      studentWhatsappNumber: phone,
+      studentWhatsappNumber: whatsapp ?? phone,
       studentEmail: email,
       deviceCount: devices,
+      loginTime: loginTime ?? intDefault,
     );
 
 List<Student> _fixture() => [
@@ -68,11 +72,14 @@ Future<void> _pump(
 }
 
 void main() {
+  setUpAll(() => registerFallbackValue(StudentSort.name));
+
   setUp(() {
     repo = MockStudentRepo();
     when(() => repo.getFirstStudentList(any()))
         .thenAnswer((_) async => _fixture());
     when(() => repo.getStudentListLength()).thenAnswer((_) async => 3);
+    when(() => repo.getSignedInStudentCount()).thenAnswer((_) async => 3);
   });
 
   group('layout', () {
@@ -507,6 +514,200 @@ void main() {
           EnrolledCourseModel.fromMap(const <String, dynamic>{});
       expect(course.unitCodeList, isEmpty);
       expect(course.subjectCode, stringDefault);
+    });
+  });
+
+  group('last active', () {
+    final DateTime now = DateTime(2026, 9, 9, 14, 30);
+
+    test('counts whole days, not elapsed hours', () {
+      // 11pm last night is "yesterday" to anyone reading the list, even
+      // though it is under 24 hours ago. `difference().inDays` would call
+      // it 0 and label it today.
+      expect(
+          StudentActivity.lastActiveLabel(DateTime(2026, 9, 8, 23, 0),
+              now: now),
+          'Active yesterday');
+      expect(
+          StudentActivity.lastActiveLabel(DateTime(2026, 9, 9, 0, 30),
+              now: now),
+          'Active today');
+    });
+
+    test('reads in days, then weeks, then a date', () {
+      expect(
+          StudentActivity.lastActiveLabel(DateTime(2026, 9, 6), now: now),
+          'Active 3 days ago');
+      expect(
+          StudentActivity.lastActiveLabel(DateTime(2026, 9, 1), now: now),
+          'Active 1 week ago');
+      expect(
+          StudentActivity.lastActiveLabel(DateTime(2026, 8, 24), now: now),
+          'Active 2 weeks ago');
+      // Past a month the date says more than "6 weeks ago".
+      expect(
+          StudentActivity.lastActiveLabel(DateTime(2026, 3, 12), now: now),
+          'Active 12 Mar 2026');
+    });
+
+    test('never signed in has no label', () {
+      expect(StudentActivity.lastActiveLabel(null, now: now), isNull);
+    });
+
+    test('a stamp in the future is not reported as such', () {
+      // A device clock running ahead. "In 2 days" on a *last* seen label is
+      // nonsense; today is the closest true thing.
+      expect(
+          StudentActivity.lastActiveLabel(DateTime(2026, 9, 11), now: now),
+          'Active today');
+    });
+
+    test('the model treats a missing or zero login_time as never', () {
+      // `login_time` arrives as intDefault (-1) when absent and 0 from a
+      // backfill — neither is 1 January 1970.
+      expect(_student('a', 'A', loginTime: intDefault).lastLoginAt, isNull);
+      expect(_student('a', 'A', loginTime: 0).lastLoginAt, isNull);
+      expect(_student('a', 'A', loginTime: 1757000000000).lastLoginAt,
+          isNotNull);
+    });
+  });
+
+  group('the row', () {
+    testWidgets('says when the student was last active', (tester) async {
+      when(() => repo.getFirstStudentList(any(),
+              sort: any(named: 'sort')))
+          .thenAnswer((_) async => [
+                _student('a', 'Anita Desai',
+                    loginTime: DateTime.now().millisecondsSinceEpoch),
+                _student('b', 'Ravi Kumar'),
+              ]);
+
+      final vm = StudentViewModel(studentRepo: repo);
+      await _pump(tester, const Size(1440, 900),
+          const Scaffold(body: StudentList()), vm);
+
+      // `login_time` was parsed onto the model and shown nowhere, so an
+      // active student looked exactly like one who never came back.
+      expect(find.text('Active today'), findsOneWidget);
+      expect(find.text('Never signed in'), findsOneWidget);
+    });
+
+    testWidgets('shows a WhatsApp number only when it differs',
+        (tester) async {
+      when(() => repo.getFirstStudentList(any(), sort: any(named: 'sort')))
+          .thenAnswer((_) async => [
+                _student('a', 'Anita Desai',
+                    phone: "9000000001", whatsapp: "9111111111"),
+                _student('b', 'Ravi Kumar', phone: "9000000002"),
+              ]);
+
+      final vm = StudentViewModel(studentRepo: repo);
+      await _pump(tester, const Size(1440, 900),
+          const Scaffold(body: StudentList()), vm);
+
+      // `student_wp_number` was read from the document and displayed
+      // nowhere at all.
+      expect(find.text('9111111111'), findsOneWidget);
+      // Ravi gave the same number twice; printing it again says nothing.
+      expect(find.text('9000000002'), findsOneWidget);
+    });
+  });
+
+  group('sorting', () {
+    testWidgets('name is the default and last active refetches', (tester) async {
+      when(() => repo.getFirstStudentList(any(), sort: any(named: 'sort')))
+          .thenAnswer((_) async => _fixture());
+
+      final vm = StudentViewModel(studentRepo: repo);
+      await _pump(tester, const Size(1440, 900),
+          const Scaffold(body: StudentList()), vm);
+
+      expect(vm.sort, StudentSort.name);
+      verify(() => repo.getFirstStudentList(any(), sort: StudentSort.name))
+          .called(1);
+
+      await tester.tap(find.byKey(const Key('student_sort_lastActive')));
+      await tester.pump();
+      await tester.pump();
+
+      // Paging restarts: a cursor from the name query means nothing to the
+      // login_time one.
+      verify(() =>
+              repo.getFirstStudentList(any(), sort: StudentSort.lastActive))
+          .called(1);
+      expect(vm.sort, StudentSort.lastActive);
+    });
+
+    testWidgets('students who never signed in are accounted for',
+        (tester) async {
+      when(() => repo.getFirstStudentList(any(), sort: any(named: 'sort')))
+          .thenAnswer((_) async => _fixture());
+      when(() => repo.getStudentListLength()).thenAnswer((_) async => 10);
+      when(() => repo.getSignedInStudentCount()).thenAnswer((_) async => 3);
+
+      final vm = StudentViewModel(studentRepo: repo);
+      await _pump(tester, const Size(1440, 900),
+          const Scaffold(body: StudentList()), vm);
+
+      // Nothing to say while ordering by name — every student has one.
+      expect(find.byKey(const Key('student_never_signed_in_note')),
+          findsNothing);
+
+      await tester.tap(find.byKey(const Key('student_sort_lastActive')));
+      await tester.pump();
+      await tester.pump();
+
+      // Firestore omits documents missing the field it orders on, so these
+      // seven are absent from the query rather than merely last.
+      expect(vm.studentsNeverSignedIn, 7);
+      expect(
+          find.text('7 students have never signed in and are not listed '
+              'here. Sort by name to see them.'),
+          findsOneWidget);
+    });
+
+    testWidgets('the count never reads lower than the page', (tester) async {
+      when(() => repo.getFirstStudentList(any(), sort: any(named: 'sort')))
+          .thenAnswer((_) async => _fixture());
+      when(() => repo.getStudentListLength()).thenAnswer((_) async => 10);
+      // Fewer than the three rows already loaded — a student signing in
+      // between the page query and the count query.
+      when(() => repo.getSignedInStudentCount()).thenAnswer((_) async => 2);
+
+      final vm = StudentViewModel(studentRepo: repo);
+      await _pump(tester, const Size(1440, 900),
+          const Scaffold(body: StudentList()), vm);
+
+      await tester.tap(find.byKey(const Key('student_sort_lastActive')));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Showing 3 of 2'), findsNothing);
+      expect(find.text('Showing 3 of 3'), findsOneWidget);
+    });
+
+    testWidgets('the footer counts towards what this ordering can reach',
+        (tester) async {
+      when(() => repo.getFirstStudentList(any(), sort: any(named: 'sort')))
+          .thenAnswer((_) async => _fixture());
+      when(() => repo.getStudentListLength()).thenAnswer((_) async => 10);
+      when(() => repo.getSignedInStudentCount()).thenAnswer((_) async => 3);
+
+      final vm = StudentViewModel(studentRepo: repo);
+      await _pump(tester, const Size(1440, 900),
+          const Scaffold(body: StudentList()), vm);
+
+      expect(find.text('Showing 3 of 10'), findsOneWidget);
+      expect(vm.hasMore, isTrue);
+
+      await tester.tap(find.byKey(const Key('student_sort_lastActive')));
+      await tester.pump();
+      await tester.pump();
+
+      // Counting towards the whole collection would leave "Showing 3 of 10"
+      // stuck forever with nothing left to load.
+      expect(find.text('Showing 3 of 3'), findsOneWidget);
+      expect(vm.hasMore, isFalse);
     });
   });
 }

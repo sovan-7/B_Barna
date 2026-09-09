@@ -157,6 +157,7 @@ class AppHeader extends StatelessWidget {
     RemoveAlert.showRemoveAlert(
       title: "Sign out",
       description: "Are you sure want to sign out ?",
+      confirmLabel: "Sign out",
       onPressYes: () async {
         // RemoveAlert never closes itself.
         Navigator.pop(navigatorKey.currentContext!);

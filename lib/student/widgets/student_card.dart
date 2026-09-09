@@ -4,6 +4,7 @@ import 'package:bbarna/resources/app_tokens.dart';
 import 'package:bbarna/resources/constant.dart';
 import 'package:bbarna/student/model/student_model.dart';
 import 'package:bbarna/student/screen/settings_student.dart';
+import 'package:bbarna/student/widgets/student_activity.dart';
 import 'package:bbarna/student/viewModel/student_viewmodel.dart';
 import 'package:bbarna/utils/helper.dart';
 import 'package:flutter/material.dart';
@@ -100,20 +101,62 @@ class _StudentCardState extends State<StudentCard> {
                     color: AppTokens.ink),
               ),
               const SizedBox(height: 4),
-              // Phone and email on one line. These were two labelled boxes
-              // taking a row each.
+              // Phone, WhatsApp and email on one line. These were two
+              // labelled boxes taking a row each — and the WhatsApp number
+              // was read off the document and shown nowhere at all.
               Wrap(
                 spacing: 14,
                 runSpacing: 3,
                 children: [
                   _fact(Icons.phone_outlined,
                       _value(_data.studentPhoneNumber, "No phone")),
+                  // Only when it differs: most students give the same
+                  // number twice, and printing it again says nothing.
+                  if (_whatsappNumber != null)
+                    _fact(Icons.chat_outlined, _whatsappNumber!),
                   _fact(Icons.mail_outline,
                       _value(_data.studentEmail, "No email")),
                 ],
               ),
+              const SizedBox(height: 4),
+              _lastActive(),
             ],
           ),
+        ),
+      ],
+    );
+  }
+
+  /// The WhatsApp number, or null when there isn't one worth showing
+  /// separately from the phone number.
+  String? get _whatsappNumber {
+    final String number = _data.studentWhatsappNumber.trim();
+    if (number.isEmpty || number == stringDefault) return null;
+    if (number == _data.studentPhoneNumber.trim()) return null;
+    return number;
+  }
+
+  /// When the student last opened the app. `login_time` was parsed onto the
+  /// model and displayed nowhere, so there was no way to tell an active
+  /// student from one who signed up and never came back.
+  Widget _lastActive() {
+    final String? label =
+        StudentActivity.lastActiveLabel(_data.lastLoginAt);
+    final bool never = label == null;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(never ? Icons.schedule_outlined : Icons.history,
+            size: 12,
+            color: never ? AppTokens.inkFaint : const Color(0xFF108460)),
+        const SizedBox(width: 5),
+        Text(
+          label ?? StudentActivity.neverLabel,
+          style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: never ? FontWeight.w400 : FontWeight.w500,
+              color: never ? AppTokens.inkFaint : AppTokens.inkMuted),
         ),
       ],
     );
@@ -296,6 +339,7 @@ class _StudentCardState extends State<StudentCard> {
     RemoveAlert.showRemoveAlert(
       title: _value(_data.studentName, "This student"),
       description: "Sign this student out of all devices ?",
+      confirmLabel: "Sign out",
       onPressYes: () async {
         Navigator.pop(navigatorKey.currentContext!);
         final bool success = await studentViewModel.clearDeviceCount(studentId);

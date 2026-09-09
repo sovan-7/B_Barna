@@ -38,13 +38,9 @@ Future<void> _signedIn() async {
   sharedPreferences = await SharedPreferences.getInstance();
 }
 
-/// Taps the header's sign-out icon and waits for the alert.
-///
-/// [RemoveAlert] opens behind a 100ms `Future.delayed`, so one settle is
-/// not enough on its own.
+/// Taps the header's sign-out icon and waits for the alert to settle.
 Future<void> _openAlert(WidgetTester tester) async {
   await tester.tap(find.byKey(const Key('app_header_sign_out')));
-  await tester.pump(const Duration(milliseconds: 150));
   await tester.pumpAndSettle();
 }
 
@@ -104,9 +100,11 @@ void main() {
 
       await _openAlert(tester);
 
-      // RemoveAlert uppercases its title.
-      expect(find.text('SIGN OUT'), findsOneWidget);
+      expect(find.text('Sign out'), findsWidgets);
       expect(find.text('Are you sure want to sign out ?'), findsOneWidget);
+      // Named after the action, not "Yes" — and the confirm button is the
+      // red one now, where Cancel used to be.
+      expect(find.byKey(const Key('remove_alert_confirm')), findsOneWidget);
       // Nothing has happened yet.
       expect(Session.isSignedIn, isTrue);
     });
@@ -117,12 +115,26 @@ void main() {
       await _pump(tester);
 
       await _openAlert(tester);
-      await tester.tap(find.text('Cancel'));
+      await tester.tap(find.byKey(const Key('remove_alert_cancel')));
       await tester.pumpAndSettle();
 
-      expect(find.text('SIGN OUT'), findsNothing);
+      expect(find.byKey(const Key('remove_alert_confirm')), findsNothing);
       expect(Session.isSignedIn, isTrue);
       expect(find.byType(_SomePage), findsOneWidget);
+    });
+
+    testWidgets('tapping outside backs out of it', (tester) async {
+      await _signedIn();
+      await _pump(tester);
+
+      await _openAlert(tester);
+      // The old alert set barrierDismissible: false and wrapped itself in
+      // PopScope(canPop: false), so there was no way out but the button.
+      await tester.tapAt(const Offset(20, 20));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('remove_alert_confirm')), findsNothing);
+      expect(Session.isSignedIn, isTrue);
     });
 
     testWidgets('confirming clears the session and lands on the login screen',
@@ -131,7 +143,7 @@ void main() {
       await _pump(tester);
 
       await _openAlert(tester);
-      await tester.tap(find.text('Yes'));
+      await tester.tap(find.byKey(const Key('remove_alert_confirm')));
       await tester.pumpAndSettle();
 
       expect(Session.isSignedIn, isFalse);
@@ -144,7 +156,7 @@ void main() {
       await _pump(tester);
 
       await _openAlert(tester);
-      await tester.tap(find.text('Yes'));
+      await tester.tap(find.byKey(const Key('remove_alert_confirm')));
       await tester.pumpAndSettle();
 
       // pushAndRemoveUntil, not push: otherwise the browser's back button
